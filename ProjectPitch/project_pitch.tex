@@ -1,12 +1,11 @@
 \documentclass{beamer}
 
 \usetheme{Madrid} % Clean theme; alternatives: "metropolis", "Boadilla", "CambridgeUS"
-\usecolortheme{seagull} % Subtle colors
+\usecolortheme{seahorse}
 
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx}
 \usepackage{hyperref}
-\usepackage{enumitem}
 \usepackage{booktabs}
 
 \title[Project Pitch: \textit{Sarajevo Apartment Price prediction}] % Short title for sidebar
@@ -23,17 +22,64 @@
 % Title Slide
 \frame{\titlepage}
 
-\begin{frame}{Table of Contents}
+\begin{frame}{What will be covered?}
   \tableofcontents
 \end{frame}
 
 \AtBeginSection[]
 {
-  \begin{frame}
-    \frametitle{Table of Contents}
+  \begin{frame}{Table of Contents}
     \tableofcontents[currentsection]
   \end{frame}
 }
 
+\section{Introduction \& Problem Statement}
+
+\subsection{What is the real-world problem?}
+\begin{frame}{What is the real-world problem?}
+  \only<1>{
+    In the modern housing market, both \textbf{apartment sale prices} and \textbf{rental prices} can vary drastically depending 
+    on factors such as location, size, number of rooms, building condition, and surrounding amenities. \newline 
+  }
+  
+  \only<2>{
+    However, in many listings, especially on local platforms, price information is often missing, incomplete, or inconsistent.
+    This makes it difficult for potential buyers, tenants, and even property owners to assess the true value of an apartment or to set a fair and competitive price.
+  }
+\end{frame}
+
+\subsection{Why is it important or relevant?}
+\begin{frame}{Why is it important or relevant?}
+  \only<1>{
+    For most people, housing is the \alert{largest financial decision} they will make, yet reliable pricing information is often 
+    unavailable. \newline 
+
+    When price data is missing or unrealistic, users have no objective way to determine whether a listing is underpriced, 
+    overpriced, or fair. 
+  }
+
+  \only<2>{
+    A system capable of accurately predicting housing and rental prices would:
+    \begin{itemize}
+      \item[$\bullet$] Help buyers and renters make more informed decisions.
+      \item[$\bullet$] Allow property owners to estimate realistic values for their listings.
+      \item[$\bullet$] Enable market analysis, regional comparisons, and price trend visualizations for researchers or real estate agencies.
+    \end{itemize}
+  }
+\end{frame}
+
+\subsection{Our Goal}
+\begin{frame}{Our Goal}
+  Our goal is to build a predictive model that can estimate both apartment sale prices and rental prices based on publicly 
+  \emph{available data}, and integrate the model into an application for ease of use. \pause
+  
+  \vspace{0.5cm}
+  Some concrete examples:
+  \begin{enumerate}    
+    \item<2-> Interactive map
+    \item<3-> Price Fairness Indicator
+    \item<4-> Price Prediction Tool for Listings
+  \end{enumerate}
+\end{frame}
 
 \end{document}
