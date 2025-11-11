@@ -7,6 +7,7 @@
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{booktabs}
+\usepackage{qrcode}
 
 \title[Project Pitch: \textit{Sarajevo Apartment Price prediction}] % Short title for sidebar
 {Project Pitch: \textit{Sarajevo Apartment Price prediction}}
@@ -26,10 +27,10 @@
   \tableofcontents
 \end{frame}
 
-\AtBeginSection[]
+\AtBeginSubsection[]
 {
   \begin{frame}{Table of Contents}
-    \tableofcontents[currentsection]
+    \tableofcontents[currentsection,currentsubsection]
   \end{frame}
 }
 
@@ -78,8 +79,399 @@
   \begin{enumerate}    
     \item<2-> Interactive map
     \item<3-> Price Fairness Indicator
-    \item<4-> Price Prediction Tool for Listings
+    \item<4-> Price Prediction Tool for Listings without given prices
   \end{enumerate}
+\end{frame}
+
+\section{Related Work}
+\subsection{What has already been explored?}
+\begin{frame}{What has already been explored}
+  \only{
+    The only work we were able to find was Real Estate Market in the Federation of B\&H for Year 2022 by FGU 
+    (Foundation for Governance and Urban Development).
+  }<1>
+
+  \only{
+    \begin{center}
+      \qrcode[height=4cm]{https://www.fgu.com.ba/en/newse-reader/real-estate-market-report-of-the-federation-of-bih-for-2022.html}
+    \end{center}
+  }<2>
+\end{frame}
+
+\subsection{What do we offer that is new?}
+\begin{frame}{What do we offer that is new?}
+  \only<1>{
+    The only existing reports that we were able to find are statistical analyses published by organizations like FGU, which provide
+    general information about the market but doesn't offer predictive capabilities.
+  }
+
+  \only<2>{
+    To the best of our knowledge, there is no publicly available tool or application that provides apartment price predictions 
+    specifically for Sarajevo or Bosnia and Herzegovina.
+  }
+\end{frame}
+
+\section{Data}
+\subsection{Collecting The Data}
+\begin{frame}{Collecting The Data}
+    We plan to collect data from popular real estate listing websites in Bosnia and Herzegovina, such as:
+    \begin{itemize}
+      \item[$\bullet$] OLX.ba
+      \item[$\bullet$] Nekretnine.ba
+      \item[$\bullet$] HaloOglasi.com
+    \end{itemize} 
+    via web scraping.
+\end{frame}
+
+\subsection{Closer look at the features}
+\begin{frame}{Overview of Features}
+  We extracted the following features from the real estate listings:
+
+  \begin{itemize}
+    \item \textbf{Price}
+    \item \textbf{Municipality}
+    \item \textbf{Condition}
+    \item \textbf{Ad Type}
+    \item \textbf{Property Type}
+    \item \textbf{Number of Rooms}
+    \item \textbf{Area (m²)}
+    \item \textbf{Furnishing Level}
+    \item \textbf{Floor Level}
+    \item \textbf{Heating Type}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Price \& Municipality}
+  \textbf{Price:}  
+  \begin{itemize}
+    \item Continuous numeric feature (float)
+    \item Represents the sale or rental price of the apartment in BAM
+    \item Serves as the target variable for our regression models
+  \end{itemize}
+
+  \pause
+  \vspace{0.5cm}
+
+  \textbf{Municipality:}  
+  \begin{itemize}
+    \item Nominal categorical feature
+    \item Indicates where the apartment is located
+    \item Values include:
+    \begin{itemize}
+      \item Sarajevo - Novi Grad
+      \item Sarajevo - Centar
+      \item Ilidža, Hadžići, etc.
+    \end{itemize}
+    \item Useful for capturing regional price differences
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Condition, Ad Type, Property Type}
+  \textbf{Condition:}  
+  \begin{itemize}
+    \item Nominal categorical
+    \item Describes the apartment’s condition (e.g., New Build, Renovated, Under Construction)
+    \item Note: One noisy value is "Apartman" (misclassified entry)
+  \end{itemize}
+
+  \pause
+
+  \textbf{Ad Type:}  
+  \begin{itemize}
+    \item Binary categorical
+    \item Indicates whether the listing is for \alert{Sale} or \alert{Rent}
+    \item Crucial for us, as we aim to build two separate models
+  \end{itemize}
+
+  \pause
+
+  \textbf{Property Type:}  
+  \begin{itemize}
+    \item Binary categorical: Apartment vs. Flat
+    \item Values are: \textit{“Apartman”} or \textit{“Stan”}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Rooms, Area, Furnishing Level}
+  \textbf{Number of Rooms:}  
+  \begin{itemize}
+    \item Integer feature
+    \item Unlike some countries that use decimal points for half-rooms, Bosnian listings use whole numbers only
+  \end{itemize}
+
+  \pause
+
+  \textbf{Area (m²):}  
+  \begin{itemize}
+    \item Numeric continuous feature
+    \item Indicates the size of the apartment in square meters
+  \end{itemize}
+
+  \pause
+
+  \textbf{Furnishing Level:}  
+  \begin{itemize}
+    \item Ordinal categorical feature
+    \item Captures whether the apartment is:
+    \begin{itemize}
+      \item Furnished
+      \item Partially furnished
+      \item Unfurnished
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Floor Level \& Heating Type}
+  \textbf{Floor Level:}  
+  \begin{itemize}
+    \item Mostly integer values (e.g., 0, -2, 3, 7, 11)
+    \item Some values are non-standard: \textit{"20+"}
+    \item Could be treated as:
+    \begin{itemize}
+      \item Ordinal (if treated as relative height)
+      \item Categorical (if "20+" cannot be normalized)
+    \end{itemize}
+  \end{itemize}
+
+  \pause
+
+  \textbf{Heating Type:}  
+  \begin{itemize}
+    \item Nominal categorical
+    \item Examples:
+    \begin{itemize}
+      \item City Central Heating
+      \item Electric Heating
+      \item Gas Heating
+      \item Wood
+      \item Other
+    \end{itemize}
+    \item May affect price and energy efficiency rating
+  \end{itemize}
+\end{frame}
+
+\subsection{Analysing the collected data}
+
+\subsection{Analysing the Collected Data}
+
+%--- Ad Type
+\begin{frame}{Ad Type Distribution}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/AdTypeDistributioPie.pdf}
+\end{frame}
+
+%--- Municipality
+\begin{frame}{Municipality Distribution (Pie)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/MunicipalityDistributionPie.pdf}
+\end{frame}
+\begin{frame}{Municipality Distribution (Bar)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/MunicipalityDistributionBar.pdf}
+\end{frame}
+\begin{frame}{Municipality - Rentals (Pie)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/MunicipalityDistributionRentalsPie.pdf}
+\end{frame}
+\begin{frame}{Municipality - Rentals (Bar)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/MunicipalityDistributionRentalsBar.pdf}
+\end{frame}
+\begin{frame}{Municipality - For Sale (Pie)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/MunicipalityDistributionForSalePie.pdf}
+\end{frame}
+\begin{frame}{Municipality - For Sale (Bar)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/MunicipalityDistributionForSaleBar.pdf}
+\end{frame}
+
+%--- Conditions
+\begin{frame}{Conditions (Pie)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/ConditionsDistributionPie.pdf}
+\end{frame}
+\begin{frame}{Conditions (Bar)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/ConditionsDistributionBar.pdf}
+\end{frame}
+\begin{frame}{Conditions - Rentals (Pie)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/ConditionsDistributionRentalsPie.pdf}
+\end{frame}
+\begin{frame}{Conditions - Rentals (Bar)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/ConditionsDistributionRentalsBar.pdf}
+\end{frame}
+\begin{frame}{Conditions - For Sale (Pie)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/ConditionsDistributionForSalePie.pdf}
+\end{frame}
+\begin{frame}{Conditions - For Sale (Bar)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/ConditionsDistributionForSaleBar.pdf}
+\end{frame}
+
+%--- Equipment
+\begin{frame}{Equipment (All)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/EquipmentsDistributioPie.pdf}
+\end{frame}
+\begin{frame}{Equipment - Rentals}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/EquipmentsForRentalsDistributioPie.pdf}
+\end{frame}
+\begin{frame}{Equipment - For Sale}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/EquipmentsForApartmentsOnSaleDistributioPie.pdf}
+\end{frame}
+
+%--- Property Type
+\begin{frame}{Property Type}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/PropertyTypeDistributioPie.pdf}
+\end{frame}
+
+%--- Rooms
+\begin{frame}{Room Count - All}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/RoomsAllApartmentsPie.pdf}
+\end{frame}
+\begin{frame}{Room Count - Rentals}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/RoomsRentalsPie.pdf}
+\end{frame}
+\begin{frame}{Room Count - For Sale}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/RoomsSalePie.pdf}
+\end{frame}
+
+%--- Heating
+\begin{frame}{Heating - All (Pie)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/HeatingAllApartmentsPie.pdf}
+\end{frame}
+\begin{frame}{Heating - All (Bar)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/HeatingDistribution_All_Bar.pdf}
+\end{frame}
+\begin{frame}{Heating - Rentals (Pie)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/HeatingRentalsPie.pdf}
+\end{frame}
+\begin{frame}{Heating - Rentals (Bar)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/HeatingDistribution_Rentals_Bar.pdf}
+\end{frame}
+\begin{frame}{Heating - For Sale (Pie)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/HeatingSalePie.pdf}
+\end{frame}
+\begin{frame}{Heating - For Sale (Bar)}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/HeatingDistribution_Sale_Bar.pdf}
+\end{frame}
+
+%--- Square Meters
+\begin{frame}{Square Meters - Histogram}
+  \centering
+  \includegraphics[height=0.9\textheight]{Images/SquareMeterDistributioHist.pdf}
+\end{frame}
+\begin{frame}{Square Meters - Boxplot (All)}
+  \centering
+  \includegraphics[width=\textwidth]{Images/SquareMeterBoxPlot.pdf}
+\end{frame}
+\begin{frame}{Square Meters - Boxplot (Rentals)}
+  \centering
+  \includegraphics[width=\textwidth]{Images/SquareMetersBoxPlotRentals.pdf}
+\end{frame}
+\begin{frame}{Square Meters - Boxplot (For Sale)}
+  \centering
+  \includegraphics[width=\textwidth]{Images/SquareMetersBoxPlotSale.pdf}
+\end{frame}
+\begin{frame}{Square Meter Statistics}
+  \centering
+  \begin{itemize}
+    \item \textbf{All Apartments} – Min: 1.13, Q1: 50, Median: 66, Q3: 85, Max: 300
+    \item \textbf{Rentals} – Min: 14, Q1: 48, Median: 63, Q3: 85, Max: 300
+    \item \textbf{For Sale} – Min: 1.13, Q1: 52, Median: 68, Q3: 85, Max: 261
+  \end{itemize}
+\end{frame}
+
+%--- Rent / Sale Prices
+\begin{frame}{Rent Price - Boxplot}
+  \centering
+  \includegraphics[width=\textwidth]{Images/RentPriceBoxPlot.pdf}
+\end{frame}
+\begin{frame}{Rent Price Stats}
+  \centering
+  \begin{itemize}
+    \item Min: 60 BAM, Q1: 650, Median: 850, Q3: 1300, Max: 6000
+    \item Mean: 1153.66 BAM, Std Dev: 849.46
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Sale Price - Boxplot}
+  \centering
+  \includegraphics[width=\textwidth]{Images/SalePriceBoxPlot.pdf}
+\end{frame}
+\begin{frame}{Sale Price Stats}
+  \centering
+  \begin{itemize}
+    \item Min: 80,000 BAM, Q1: 240,000, Median: 320,000, Q3: 424,975, Max: 1,400,000
+    \item Mean: 357,497 BAM, Std Dev: 177,897
+  \end{itemize}
+\end{frame}
+
+\subsection{Possible Issues with the data}
+\begin{frame}{Observed Limitations}
+  \begin{itemize}
+    \item Some categorical features (e.g. \texttt{equipment}, \texttt{condition}, \texttt{heating}) have classes with very low representation.
+    \begin{itemize}
+      \item These can introduce instability during training or bias metrics.
+      \item We will decide whether to merge rare classes or drop them depending on the context.
+    \end{itemize}
+    \item \textbf{Most importantly:} the \texttt{municipality} feature is a poor indicator of location-based price variation.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Why Municipality is Not Sufficient}
+  \begin{columns}
+    \column{0.55\textwidth}
+    \begin{itemize}
+      \item For example, \textbf{Novi Grad} covers both:
+        \begin{itemize}
+          \item high-demand areas near city centers,
+          \item and peripheral zones with low real estate value.
+        \end{itemize}
+      \item Two apartments within Novi Grad may differ drastically in price due to local access to infrastructure and amenities.
+      \item Hence, treating \texttt{municipality} as a proxy for "location" leads to poor model generalization.
+    \end{itemize}
+
+    \column{0.45\textwidth}
+    \centering
+    \includegraphics[width=0.9\textwidth]{Images/NoviGradMap.png} % Replace with your image
+    \newline
+    \scriptsize\textit{Illustration: Disparity in spatial price variation within one municipality.}
+  \end{columns}
+\end{frame}
+
+\subsection{Possible Solutions}
+\begin{frame}{Proposed Solution: Geo-based Enrichment}
+  \begin{itemize}
+    \item We plan to extract the \textbf{longitude and latitude} of each apartment (either from address parsing or manual geocoding).
+    \item With this data, we can:
+    \begin{itemize}
+      \item Use the \textbf{Overpass API} and \textbf{OpenStreetMap} to query surrounding infrastructure.
+      \item Compute features like:
+      \begin{itemize}
+        \item Number of tram/bus stations within 500m.
+        \item Distance to nearest hospital, park, supermarket, etc.
+        \item Average distance to \textit{n} key public service locations.
+      \end{itemize}
+    \end{itemize}
+    \item This makes our model more \textbf{location-aware} and enables predictions even in previously unseen areas.
+  \end{itemize}
 \end{frame}
 
 \end{document}
