@@ -1,3 +1,4 @@
+
 # Byte-compiled / cache files
 __pycache__/
 *.py[cod]
@@ -8,7 +9,6 @@ env/
 .venv/
 
 # Data files (scraped datasets)
-data/*.csv
 data/*.json
 
 # Jupyter notebook checkpoints
