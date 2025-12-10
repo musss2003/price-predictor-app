@@ -1,98 +1,168 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [city, setCity] = useState("Sarajevo");
+  const [m2, setM2] = useState("");
+  const [floor, setFloor] = useState("");
+  const [year, setYear] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [price, setPrice] = useState<number | null>(null);
+  const [error, setError] = useState("");
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const predictPrice = async () => {
+    if (!m2 || !floor || !year) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+    setPrice(null);
+
+    try {
+      const response = await fetch("http://localhost:8000/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          city,
+          m2: Number(m2),
+          floor: Number(floor),
+          built: Number(year),
+        }),
+      });
+
+      const data = await response.json();
+      setPrice(data.price);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to fetch prediction");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <Text style={styles.title}>🏠 Price Predictor</Text>
+
+      <TextInput
+        style={styles.input}
+        value={city}
+        onChangeText={setCity}
+        placeholder="City"
+      />
+
+      <TextInput
+        style={styles.input}
+        value={m2}
+        onChangeText={setM2}
+        placeholder="Square meters"
+        keyboardType="numeric"
+      />
+
+      <TextInput
+        style={styles.input}
+        value={floor}
+        onChangeText={setFloor}
+        placeholder="Floor"
+        keyboardType="numeric"
+      />
+
+      <TextInput
+        style={styles.input}
+        value={year}
+        onChangeText={setYear}
+        placeholder="Built year"
+        keyboardType="numeric"
+      />
+
+      <Pressable style={styles.button} onPress={predictPrice}>
+        <Text style={styles.buttonText}>Predict Price</Text>
+      </Pressable>
+
+      {loading && <ActivityIndicator size="large" style={{ marginTop: 20 }} />}
+
+      {error !== "" && <Text style={styles.error}>{error}</Text>}
+
+      {price !== null && (
+        <View style={styles.resultBox}>
+          <Text style={styles.resultLabel}>Predicted Price</Text>
+          <Text style={styles.resultValue}>
+            {price.toLocaleString()} KM
+          </Text>
+        </View>
+      )}
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: "center",
+    backgroundColor: "#f8f9fa",
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  title: {
+    fontSize: 26,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 32,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    backgroundColor: "#fff",
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 14,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: "#2563eb",
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 18,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  error: {
+    marginTop: 16,
+    color: "red",
+    textAlign: "center",
+  },
+  resultBox: {
+    marginTop: 30,
+    padding: 20,
+    borderRadius: 14,
+    backgroundColor: "#e0f2fe",
+    alignItems: "center",
+  },
+  resultLabel: {
+    fontSize: 16,
+    color: "#0369a1",
+  },
+  resultValue: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#0c4a6e",
+    marginTop: 6,
   },
 });
