@@ -1,50 +1,184 @@
-# Welcome to your Expo app 👋
+# 📱 Price Predictor Mobile App (React Native + Expo)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A cross-platform mobile application built with **React Native and Expo** that connects to a **Machine Learning API** to predict real estate prices based on user input (city, square meters, floor, and year built).
 
-## Get started
+This project is designed as a **mobile frontend** for an ML price-prediction system and works on:
 
-1. Install dependencies
+- ✅ Web (browser preview)
+- ✅ Android
+- ✅ iOS
 
-   ```bash
-   npm install
-   ```
+---
 
-2. Start the app
+## 🚀 Features
 
-   ```bash
-   npx expo start
-   ```
+- 📊 Property price prediction using ML backend
+- 🏙️ City, square meters, floor, and build year input
+- ⚡ Real-time API communication
+- ⏳ Loading state & error handling
+- 📱 Mobile-first UI design
+- 🌐 Web preview for fast development
+- 🔗 Ready for Android & iOS builds
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 🛠️ Tech Stack
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+**Frontend:**
+- React Native
+- Expo
+- TypeScript
+- Fetch API
 
-## Get a fresh project
+**Backend (connected separately):**
+- FastAPI / Flask / Node.js
+- Machine Learning prediction model
 
-When you're ready, run:
+---
 
-```bash
-npm run reset-project
+## 📂 Project Structure
+
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+price-predictor-app/
+├── app/
+│   └── index.tsx      # Main mobile screen
+├── assets/
+├── package.json
+└── app.json
 
-## Learn more
+````
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## ⚙️ Installation & Setup
 
-## Join the community
+### 1️⃣ Clone the Repository
 
-Join our community of developers creating universal apps.
+```bash
+git clone https://github.com/YOUR_USERNAME/price-predictor-app.git
+cd price-predictor-app
+````
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### 2️⃣ Install Dependencies
+
+```bash
+npm install
+```
+
+### 3️⃣ Start the Development Server
+
+```bash
+npm start
+```
+
+Then press:
+
+```bash
+w
+```
+
+to open the app in **web mode** on your laptop.
+
+---
+
+## 📡 Backend Connection
+
+This app expects a running backend API at:
+
+```
+POST /predict
+```
+
+Example request body:
+
+```json
+{
+  "city": "Sarajevo",
+  "m2": 55,
+  "floor": 2,
+  "built": 2015
+}
+```
+
+Example response:
+
+```json
+{
+  "price": 137500
+}
+```
+
+⚠️ Important:
+
+* If testing from a real phone, you **must use your local IP**, not `localhost`.
+
+---
+
+## ✅ Example FastAPI Backend (Minimal)
+
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class Property(BaseModel):
+    city: str
+    m2: float
+    floor: int
+    built: int
+
+@app.post("/predict")
+def predict_price(data: Property):
+    price = data.m2 * 2500
+    return { "price": price }
+```
+
+Run it using:
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+---
+
+## 📱 Running on a Real Phone (Optional)
+
+1. Install **Expo Go** from Play Store / App Store
+2. Run:
+
+```bash
+npm start
+```
+
+3. Scan the QR code
+
+✅ App opens instantly on your phone.
+
+---
+
+## 🎯 Future Features
+
+* ✅ Prediction history
+* ✅ User authentication
+* ✅ Charts & price trends
+* ✅ Google Maps location picker
+* ✅ Cloud deployment
+* ✅ Google Play Store release
+
+---
+
+## 👨‍💻 Author
+
+**Mustafa Sinanović**
+Software Engineering Student
+Specialized in Full-Stack & Machine Learning Applications
+
+GitHub: [https://github.com/musss2003](https://github.com/musss2003)
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License**.
