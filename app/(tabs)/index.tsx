@@ -1,14 +1,15 @@
 import { useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
+import { usePredictionHistory } from "../../hooks/use-prediction-history";
 
 export default function HomeScreen() {
   const [city, setCity] = useState("Sarajevo");
@@ -18,6 +19,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(false);
   const [price, setPrice] = useState<number | null>(null);
   const [error, setError] = useState("");
+
+  const { addRecord } = usePredictionHistory();
 
   const predictPrice = async () => {
     if (!m2 || !floor || !year) {
@@ -42,7 +45,22 @@ export default function HomeScreen() {
       });
 
       const data = await response.json();
+      if (typeof data.price !== "number") {
+        throw new Error("Invalid response from server");
+      }
+
       setPrice(data.price);
+
+      // ✅ Save to prediction history
+      addRecord(
+        {
+          city,
+          m2: Number(m2),
+          floor: Number(floor),
+          built: Number(year),
+        },
+        data.price
+      );
     } catch (err) {
       console.error(err);
       setError("Failed to fetch prediction");
@@ -100,9 +118,7 @@ export default function HomeScreen() {
       {price !== null && (
         <View style={styles.resultBox}>
           <Text style={styles.resultLabel}>Predicted Price</Text>
-          <Text style={styles.resultValue}>
-            {price.toLocaleString()} KM
-          </Text>
+          <Text style={styles.resultValue}>{price.toLocaleString()} KM</Text>
         </View>
       )}
     </KeyboardAvoidingView>
