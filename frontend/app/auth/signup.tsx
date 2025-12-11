@@ -39,7 +39,7 @@ export default function SignUpScreen() {
     } else {
       Alert.alert(
         'Success',
-        'Account created! Please sign in.',
+        'Account created successfully! You can now sign in with your credentials.',
         [{ text: 'OK', onPress: () => router.replace('/auth/signin') }]
       )
     }

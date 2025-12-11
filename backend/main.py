@@ -23,7 +23,11 @@ load_dotenv()
 # Initialize Supabase client
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
+supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
+
+# Admin client for operations that need to bypass RLS
+supabase_admin: Client = create_client(supabase_url, supabase_service_key) if supabase_service_key else supabase
 
 # Initialize auth service
 auth_service = AuthService(supabase)
@@ -371,13 +375,72 @@ async def get_recommended_listings(
 # ===========================================================
 
 @app.get("/listings")
-def get_listings(limit: int = 100, sort: str = "deal_score_desc"):
+def get_listings(
+    limit: int = 100, 
+    offset: int = 0, 
+    sort: str = "deal_score_desc",
+    price_min: Optional[float] = None,
+    price_max: Optional[float] = None,
+    municipality: Optional[str] = None,
+    property_type: Optional[str] = None,
+    rooms_min: Optional[int] = None,
+    size_min: Optional[float] = None,
+    condition: Optional[str] = None,
+    deal_score_min: Optional[float] = None,
+):
+    import math
+    
     data = listings
 
-    if sort == "deal_score_desc":
-        data = sorted(data, key=lambda x: x["deal_score"], reverse=True)
+    # Apply filters
+    if price_min is not None:
+        data = [l for l in data if l.get("price_numeric") and l["price_numeric"] >= price_min]
+    
+    if price_max is not None:
+        data = [l for l in data if l.get("price_numeric") and l["price_numeric"] <= price_max]
+    
+    if municipality:
+        data = [l for l in data if l.get("municipality") and municipality.lower() in l["municipality"].lower()]
+    
+    if property_type:
+        data = [l for l in data if l.get("property_type") == property_type]
+    
+    if rooms_min is not None:
+        data = [l for l in data if l.get("rooms") and l["rooms"] >= rooms_min]
+    
+    if size_min is not None:
+        data = [l for l in data if l.get("square_m2") and l["square_m2"] >= size_min]
+    
+    if condition:
+        data = [l for l in data if l.get("condition") == condition]
+    
+    if deal_score_min is not None:
+        data = [l for l in data if l.get("deal_score") and l["deal_score"] >= deal_score_min]
 
-    return data[:limit]
+    # Sort
+    if sort == "deal_score_desc":
+        data = sorted(data, key=lambda x: x.get("deal_score", 0), reverse=True)
+
+    # Clean NaN values before pagination
+    def clean_nan(obj):
+        if isinstance(obj, dict):
+            return {k: clean_nan(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [clean_nan(item) for item in obj]
+        elif isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+            return None
+        return obj
+
+    # Apply pagination with offset
+    paginated_data = data[offset:offset + limit]
+    cleaned_data = clean_nan(paginated_data)
+    
+    return {
+        "total": len(data),
+        "offset": offset,
+        "limit": limit,
+        "data": cleaned_data
+    }
 
 
 @app.get("/listings/{listing_id}")
@@ -433,7 +496,7 @@ async def predict(
             "predicted_price": predicted_price
         }
         
-        supabase.table("predictions").insert(prediction_data).execute()
+        supabase_admin.table("predictions").insert(prediction_data).execute()
     except Exception as e:
         print(f"Error saving to Supabase: {e}")
     
@@ -444,6 +507,13 @@ async def predict(
 async def sync_listings_to_supabase():
     """Sync all listings from CSV to Supabase database"""
     try:
+        # Integer fields that should be converted properly
+        int_fields = {'id', 'price_numeric', 'price_per_m2', 'level_numeric', 
+                      'predicted_price', 'price_difference', 'deal_score'}
+        
+        # Float/numeric fields
+        float_fields = {'rooms', 'square_m2', 'latitude', 'longitude'}
+        
         # Prepare data for Supabase (convert numpy types to Python types)
         listings_clean = []
         for listing in listings:
@@ -451,41 +521,66 @@ async def sync_listings_to_supabase():
             for key, value in listing.items():
                 if pd.isna(value) or value is None:
                     clean_listing[key] = None
+                elif key in int_fields:
+                    # Convert to int, handling float strings
+                    try:
+                        clean_listing[key] = int(float(value))
+                    except (ValueError, TypeError):
+                        clean_listing[key] = None
+                elif key in float_fields:
+                    # Convert to float
+                    try:
+                        clean_listing[key] = float(value)
+                    except (ValueError, TypeError):
+                        clean_listing[key] = None
                 elif isinstance(value, (np.integer, np.floating)):
                     clean_listing[key] = float(value) if isinstance(value, np.floating) else int(value)
+                elif isinstance(value, np.bool_):
+                    clean_listing[key] = bool(value)
                 else:
-                    clean_listing[key] = value
+                    clean_listing[key] = str(value) if value is not None else None
             listings_clean.append(clean_listing)
         
         # Insert in batches of 100
         batch_size = 100
+        total_inserted = 0
         for i in range(0, len(listings_clean), batch_size):
             batch = listings_clean[i:i+batch_size]
-            supabase.table("listings").upsert(batch).execute()
+            result = supabase_admin.table("listings").upsert(batch).execute()
+            total_inserted += len(batch)
+            print(f"Inserted batch {i//batch_size + 1}: {len(batch)} records (Total: {total_inserted})")
         
         return {
             "message": "Listings synced successfully",
             "count": len(listings_clean)
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error syncing to Supabase: {str(e)}")
 
 
 @app.get("/predictions")
 async def get_predictions(
     limit: int = 50,
-    current_user: dict = Depends(auth_service.get_current_user)
+    authorization: Optional[str] = Header(None)
 ):
-    """Get user's recent predictions from Supabase"""
+    """Get user's recent predictions from Supabase (requires authentication)"""
+    if not authorization:
+        return []
+    
     try:
+        user = auth_service.verify_token(authorization)
         response = supabase.table("predictions") \
             .select("*") \
-            .eq("user_id", current_user["id"]) \
+            .eq("user_id", user["id"]) \
             .order("created_at", desc=True) \
             .limit(limit) \
             .execute()
         
         return response.data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching predictions: {str(e)}")
+        print(f"Error fetching predictions: {e}")
+        return []
+
 

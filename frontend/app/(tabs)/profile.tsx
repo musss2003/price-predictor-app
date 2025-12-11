@@ -110,13 +110,19 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
           
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/preferences')}
+          >
             <Ionicons name="settings-outline" size={24} color="#667eea" />
             <Text style={styles.menuText}>Preferences</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/saved')}
+          >
             <Ionicons name="heart-outline" size={24} color="#667eea" />
             <Text style={styles.menuText}>Saved Listings</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
@@ -125,7 +131,7 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.menuItem}>
             <Ionicons name="notifications-outline" size={24} color="#667eea" />
             <Text style={styles.menuText}>Notifications</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
+            <Text style={styles.comingSoon}>Coming Soon</Text>
           </TouchableOpacity>
         </View>
 
@@ -239,6 +245,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     marginLeft: 16,
+  },
+  comingSoon: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
   },
   button: {
     marginTop: 10,
