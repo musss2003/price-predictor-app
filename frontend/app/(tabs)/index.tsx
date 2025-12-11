@@ -15,6 +15,8 @@ import {
 import MapView, { Marker } from "../../components/MapView";
 import { SelectPicker } from "../../components/SelectPicker";
 import { usePredictionHistory } from "../../hooks/use-prediction-history";
+import { makePrediction } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function HomeScreen() {
   // Sarajevo Canton center coordinates
@@ -33,6 +35,7 @@ export default function HomeScreen() {
   const [error, setError] = useState("");
 
   const { addRecord } = usePredictionHistory();
+  const { user } = useAuth();
 
   const predictPrice = async () => {
     if (!rooms || !squareM2 || !level) {
@@ -45,27 +48,18 @@ export default function HomeScreen() {
     setPrice(null);
 
     try {
-      const response = await fetch("http://localhost:8000/predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          longitude,
-          latitude,
-          condition,
-          ad_type: adType,
-          property_type: propertyType,
-          rooms: Number(rooms),
-          square_m2: Number(squareM2),
-          equipment,
-          level: Number(level),
-          heating,
-        }),
+      const data = await makePrediction({
+        longitude,
+        latitude,
+        condition,
+        ad_type: adType,
+        property_type: propertyType,
+        rooms: Number(rooms),
+        square_m2: Number(squareM2),
+        equipment,
+        level: Number(level),
+        heating,
       });
-
-      const data = await response.json();
-      if (typeof data.price !== "number") {
-        throw new Error("Invalid response from server");
-      }
 
       setPrice(data.price);
 
@@ -86,7 +80,7 @@ export default function HomeScreen() {
       );
     } catch (err) {
       console.error(err);
-      setError("Failed to fetch prediction");
+      setError("Failed to fetch prediction. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -104,7 +98,9 @@ export default function HomeScreen() {
         style={styles.header}
       >
         <Text style={styles.headerTitle}>Real Estate Price</Text>
-        <Text style={styles.headerSubtitle}>AI-Powered Predictions</Text>
+        <Text style={styles.headerSubtitle}>
+          {user ? `Welcome, ${user.email}` : "AI-Powered Predictions"}
+        </Text>
       </LinearGradient>
 
       <KeyboardAvoidingView

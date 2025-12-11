@@ -1,10 +1,34 @@
 # main.py
+import os
 import pandas as pd
 import numpy as np
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
+from dotenv import load_dotenv
+from supabase import create_client, Client
 
-app = FastAPI()
+# Import our custom modules
+from auth import AuthService
+from models import (
+    PredictionInput, PredictionResponse,
+    UserSignUp, UserSignIn, UserProfile, UserProfileUpdate,
+    UserPreferences, SavedListing, UserInterest,
+    AuthResponse, MessageResponse
+)
+
+# Load environment variables
+load_dotenv()
+
+# Initialize Supabase client
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(supabase_url, supabase_key)
+
+# Initialize auth service
+auth_service = AuthService(supabase)
+
+app = FastAPI(title="Real Estate Price Predictor API", version="1.0.0")
 
 # Allow your Expo App to connect
 app.add_middleware(
@@ -87,6 +111,265 @@ listings = df.to_dict(orient="records")
 #                      API ROUTES
 # ===========================================================
 
+@app.get("/")
+def root():
+    return {"message": "Real Estate Price Predictor API", "status": "running"}
+
+
+# ===========================================================
+#              AUTHENTICATION ENDPOINTS
+# ===========================================================
+
+@app.post("/auth/signup")
+async def signup(user_data: UserSignUp):
+    """Register a new user"""
+    try:
+        # Sign up with Supabase Auth
+        response = supabase.auth.sign_up({
+            "email": user_data.email,
+            "password": user_data.password
+        })
+        
+        if not response.user:
+            raise HTTPException(status_code=400, detail="Failed to create user")
+        
+        # Create user profile
+        profile_data = {
+            "full_name": user_data.full_name,
+            "phone": user_data.phone
+        }
+        await auth_service.create_user_profile(
+            response.user.id,
+            user_data.email,
+            profile_data
+        )
+        
+        return {
+            "message": "User created successfully",
+            "user": {
+                "id": response.user.id,
+                "email": response.user.email
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/auth/signin")
+async def signin(credentials: UserSignIn):
+    """Sign in existing user"""
+    try:
+        response = supabase.auth.sign_in_with_password({
+            "email": credentials.email,
+            "password": credentials.password
+        })
+        
+        if not response.session:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        return {
+            "access_token": response.session.access_token,
+            "refresh_token": response.session.refresh_token,
+            "user": {
+                "id": response.user.id,
+                "email": response.user.email
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+
+@app.post("/auth/signout")
+async def signout(current_user: dict = Depends(auth_service.get_current_user)):
+    """Sign out current user"""
+    try:
+        supabase.auth.sign_out()
+        return {"message": "Signed out successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/auth/me")
+async def get_current_user_profile(current_user: dict = Depends(auth_service.get_current_user)):
+    """Get current user's profile"""
+    profile = await auth_service.get_user_profile(current_user["id"])
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    return profile
+
+
+# ===========================================================
+#              USER PROFILE ENDPOINTS
+# ===========================================================
+
+@app.put("/profile")
+async def update_profile(
+    profile_update: UserProfileUpdate,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """Update user profile"""
+    update_data = profile_update.dict(exclude_unset=True)
+    
+    updated_profile = await auth_service.update_user_profile(
+        current_user["id"],
+        update_data
+    )
+    
+    return {"message": "Profile updated", "profile": updated_profile}
+
+
+@app.put("/profile/preferences")
+async def update_preferences(
+    preferences: UserPreferences,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """Update user search preferences"""
+    profile = await auth_service.get_user_profile(current_user["id"])
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    # Update preferences
+    update_data = {"preferences": preferences.dict(exclude_unset=True)}
+    updated_profile = await auth_service.update_user_profile(
+        current_user["id"],
+        update_data
+    )
+    
+    return {"message": "Preferences updated", "preferences": updated_profile.get("preferences")}
+
+
+@app.get("/profile/preferences")
+async def get_preferences(current_user: dict = Depends(auth_service.get_current_user)):
+    """Get user preferences"""
+    profile = await auth_service.get_user_profile(current_user["id"])
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    return profile.get("preferences", {})
+
+
+# ===========================================================
+#              SAVED LISTINGS & INTERESTS
+# ===========================================================
+
+@app.post("/saved-listings")
+async def save_listing(
+    saved: SavedListing,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """Save a listing to user's favorites"""
+    interest_data = {
+        "listing_id": saved.listing_id,
+        "notes": saved.notes,
+        "saved_at": pd.Timestamp.now().isoformat()
+    }
+    
+    result = await auth_service.save_user_interest(
+        current_user["id"],
+        "saved_listing",
+        interest_data
+    )
+    
+    return {"message": "Listing saved", "data": result}
+
+
+@app.get("/saved-listings")
+async def get_saved_listings(current_user: dict = Depends(auth_service.get_current_user)):
+    """Get user's saved listings"""
+    interests = await auth_service.get_user_interests(
+        current_user["id"],
+        interest_type="saved_listing"
+    )
+    
+    # Extract listing IDs and fetch full listing data
+    saved_listing_ids = [item["data"]["listing_id"] for item in interests]
+    saved_listings = [listing for listing in listings if listing["id"] in saved_listing_ids]
+    
+    return saved_listings
+
+
+@app.delete("/saved-listings/{listing_id}")
+async def remove_saved_listing(
+    listing_id: int,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """Remove a listing from saved items"""
+    try:
+        # Find and delete the saved listing
+        response = supabase.table("user_interests") \
+            .delete() \
+            .eq("user_id", current_user["id"]) \
+            .eq("interest_type", "saved_listing") \
+            .filter("data->>listing_id", "eq", str(listing_id)) \
+            .execute()
+        
+        return {"message": "Listing removed from saved items"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ===========================================================
+#              PERSONALIZED LISTINGS
+# ===========================================================
+
+@app.get("/listings/recommended")
+async def get_recommended_listings(
+    limit: int = 50,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """Get personalized recommended listings based on user preferences"""
+    profile = await auth_service.get_user_profile(current_user["id"])
+    
+    if not profile or not profile.get("preferences"):
+        # No preferences, return top deals
+        data = sorted(listings, key=lambda x: x["deal_score"], reverse=True)
+        return data[:limit]
+    
+    prefs = profile["preferences"]
+    filtered = listings.copy()
+    
+    # Apply filters based on preferences
+    if prefs.get("min_price"):
+        filtered = [l for l in filtered if l["price_numeric"] >= prefs["min_price"]]
+    
+    if prefs.get("max_price"):
+        filtered = [l for l in filtered if l["price_numeric"] <= prefs["max_price"]]
+    
+    if prefs.get("preferred_municipalities"):
+        filtered = [l for l in filtered if l["municipality"] in prefs["preferred_municipalities"]]
+    
+    if prefs.get("preferred_property_types"):
+        filtered = [l for l in filtered if l["property_type"] in prefs["preferred_property_types"]]
+    
+    if prefs.get("min_rooms"):
+        filtered = [l for l in filtered if l["rooms"] >= prefs["min_rooms"]]
+    
+    if prefs.get("max_rooms"):
+        filtered = [l for l in filtered if l["rooms"] <= prefs["max_rooms"]]
+    
+    if prefs.get("min_square_m2"):
+        filtered = [l for l in filtered if l["square_m2"] >= prefs["min_square_m2"]]
+    
+    if prefs.get("max_square_m2"):
+        filtered = [l for l in filtered if l["square_m2"] <= prefs["max_square_m2"]]
+    
+    if prefs.get("preferred_conditions"):
+        filtered = [l for l in filtered if l["condition"] in prefs["preferred_conditions"]]
+    
+    # Sort by deal score
+    filtered = sorted(filtered, key=lambda x: x["deal_score"], reverse=True)
+    
+    return filtered[:limit]
+
+
+# ===========================================================
+#              ORIGINAL ENDPOINTS (Updated)
+# ===========================================================
+
 @app.get("/listings")
 def get_listings(limit: int = 100, sort: str = "deal_score_desc"):
     data = listings
@@ -103,3 +386,106 @@ def get_listing(listing_id: int):
         if item["id"] == listing_id:
             return item
     return {"error": "Listing not found"}
+
+
+@app.post("/predict", response_model=PredictionResponse)
+async def predict(
+    input_data: PredictionInput,
+    authorization: Optional[str] = Header(None)
+):
+    """Predict property price based on input features (optionally authenticated)"""
+    # Try to get user if authenticated, but don't require it
+    user_id = None
+    try:
+        if authorization:
+            user = auth_service.verify_token(authorization)
+            user_id = user["id"]
+    except:
+        pass  # Anonymous prediction allowed
+    
+    # Simple prediction model (replace with your ML model)
+    base_price = 2000 * input_data.square_m2
+    room_bonus = input_data.rooms * 15000
+    
+    # Condition multiplier
+    condition_multiplier = {
+        "New": 1.2,
+        "Renovated": 1.1,
+        "Used": 0.95
+    }.get(input_data.condition, 1.0)
+    
+    predicted_price = (base_price + room_bonus) * condition_multiplier
+    
+    # Save prediction to Supabase
+    try:
+        prediction_data = {
+            "user_id": user_id,  # Null if anonymous
+            "longitude": input_data.longitude,
+            "latitude": input_data.latitude,
+            "condition": input_data.condition,
+            "ad_type": input_data.ad_type,
+            "property_type": input_data.property_type,
+            "rooms": input_data.rooms,
+            "square_m2": input_data.square_m2,
+            "equipment": input_data.equipment,
+            "level": input_data.level,
+            "heating": input_data.heating,
+            "predicted_price": predicted_price
+        }
+        
+        supabase.table("predictions").insert(prediction_data).execute()
+    except Exception as e:
+        print(f"Error saving to Supabase: {e}")
+    
+    return PredictionResponse(price=predicted_price)
+
+
+@app.post("/sync-listings")
+async def sync_listings_to_supabase():
+    """Sync all listings from CSV to Supabase database"""
+    try:
+        # Prepare data for Supabase (convert numpy types to Python types)
+        listings_clean = []
+        for listing in listings:
+            clean_listing = {}
+            for key, value in listing.items():
+                if pd.isna(value) or value is None:
+                    clean_listing[key] = None
+                elif isinstance(value, (np.integer, np.floating)):
+                    clean_listing[key] = float(value) if isinstance(value, np.floating) else int(value)
+                else:
+                    clean_listing[key] = value
+            listings_clean.append(clean_listing)
+        
+        # Insert in batches of 100
+        batch_size = 100
+        for i in range(0, len(listings_clean), batch_size):
+            batch = listings_clean[i:i+batch_size]
+            supabase.table("listings").upsert(batch).execute()
+        
+        return {
+            "message": "Listings synced successfully",
+            "count": len(listings_clean)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error syncing to Supabase: {str(e)}")
+
+
+@app.get("/predictions")
+async def get_predictions(
+    limit: int = 50,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """Get user's recent predictions from Supabase"""
+    try:
+        response = supabase.table("predictions") \
+            .select("*") \
+            .eq("user_id", current_user["id"]) \
+            .order("created_at", desc=True) \
+            .limit(limit) \
+            .execute()
+        
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching predictions: {str(e)}")
+

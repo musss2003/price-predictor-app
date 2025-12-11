@@ -1,0 +1,53 @@
+# ==========================================
+# Root Level Gitignore for Monorepo
+# ==========================================
+
+# Operating System Files
+# -----------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDEs and Editors
+# ----------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+*.code-workspace
+
+# Logs and Databases
+# ------------------
+*.log
+*.sql
+*.sqlite
+*.sqlite3
+backend.log
+
+# Environment Variables
+# ---------------------
+.env
+.env.local
+.env.*.local
+*.env
+
+# Temporary Files
+# ---------------
+*.tmp
+*.temp
+.cache/
+
+# Build Outputs (if building at root)
+# ------------------------------------
+dist/
+build/

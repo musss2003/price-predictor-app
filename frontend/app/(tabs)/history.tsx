@@ -1,5 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   StatusBar,
@@ -11,12 +13,45 @@ import {
   PredictionRecord,
   usePredictionHistory,
 } from "../../hooks/use-prediction-history";
+import { useAuth } from "@/contexts/AuthContext";
+import { getUserPredictions } from "@/services/api";
 
 export default function HistoryScreen() {
   const { history, clearHistory } = usePredictionHistory();
+  const { user } = useAuth();
+  const [serverHistory, setServerHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const renderItem = ({ item }: { item: PredictionRecord }) => {
-    const date = new Date(item.createdAt);
+  useEffect(() => {
+    if (user) {
+      loadServerHistory();
+    }
+  }, [user]);
+
+  const loadServerHistory = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const data = await getUserPredictions();
+      setServerHistory(data);
+    } catch (error) {
+      console.error("Failed to load server history:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Combine local and server history
+  const combinedHistory = user ? serverHistory : history;
+
+  const renderItem = ({ item }: { item: any }) => {
+    // Handle both local and server predictions
+    const price = item.price || item.predicted_price;
+    const input = item.input || item;
+    const createdAt = item.createdAt || item.created_at;
+    
+    const date = new Date(createdAt);
     const formattedDate = date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -28,9 +63,9 @@ export default function HistoryScreen() {
       <LinearGradient colors={["#ffffff", "#f9fafb"]} style={styles.card}>
         <View style={styles.cardHeader}>
           <View>
-            <Text style={styles.price}>{item.price.toLocaleString()} KM</Text>
+            <Text style={styles.price}>{price.toLocaleString()} KM</Text>
             <Text style={styles.priceEur}>
-              ≈ €{(item.price / 2).toLocaleString()}
+              ≈ €{(price / 2).toLocaleString()}
             </Text>
           </View>
           <Text style={styles.date}>{formattedDate}</Text>
@@ -38,18 +73,18 @@ export default function HistoryScreen() {
         <View style={styles.divider} />
         <View style={styles.detailsContainer}>
           <Text style={styles.detail}>
-            📍 {item.input.latitude.toFixed(4)},{" "}
-            {item.input.longitude.toFixed(4)}
+            📍 {input.latitude.toFixed(4)},{" "}
+            {input.longitude.toFixed(4)}
           </Text>
           <Text style={styles.detail}>
-            🏠 {item.input.square_m2} m² • {item.input.rooms} rooms • Floor{" "}
-            {item.input.level}
+            🏠 {input.square_m2} m² • {input.rooms} rooms • Floor{" "}
+            {input.level}
           </Text>
           <Text style={styles.detail}>
-            🏢 {item.input.property_type} • {item.input.condition}
+            🏢 {input.property_type} • {input.condition}
           </Text>
           <Text style={styles.detail}>
-            🛋️ {item.input.equipment} • 🔥 {item.input.heating}
+            🛋️ {input.equipment} • 🔥 {input.heating}
           </Text>
         </View>
       </LinearGradient>
@@ -69,9 +104,11 @@ export default function HistoryScreen() {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.title}>History</Text>
-            <Text style={styles.subtitle}>{history.length} predictions</Text>
+            <Text style={styles.subtitle}>
+              {loading ? "Loading..." : `${combinedHistory.length} predictions`}
+            </Text>
           </View>
-          {history.length > 0 && (
+          {combinedHistory.length > 0 && !user && (
             <Pressable onPress={clearHistory} style={styles.clearButton}>
               <Text style={styles.clearText}>🗑️ Clear All</Text>
             </Pressable>
@@ -79,18 +116,25 @@ export default function HistoryScreen() {
         </View>
       </LinearGradient>
 
-      {history.length === 0 ? (
+      {loading ? (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color="#667eea" />
+          <Text style={styles.emptySubtext}>Loading your predictions...</Text>
+        </View>
+      ) : combinedHistory.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>📊</Text>
           <Text style={styles.empty}>No predictions yet</Text>
           <Text style={styles.emptySubtext}>
-            Make your first prediction on the Predict tab!
+            {user 
+              ? "Make your first prediction on the Predict tab!" 
+              : "Sign in to sync your predictions across devices"}
           </Text>
         </View>
       ) : (
         <FlatList
-          data={history}
-          keyExtractor={(item) => item.id}
+          data={combinedHistory}
+          keyExtractor={(item, index) => item.id || `${index}`}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}

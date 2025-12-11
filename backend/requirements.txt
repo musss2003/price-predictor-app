@@ -1,5 +1,8 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pandas
 numpy
+supabase
+python-dotenv
+email-validator
 scikit-learn

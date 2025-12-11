@@ -32,7 +32,15 @@ export default function TabLayout() {
         <Tabs.Screen
           name="explore"
           options={{
-            href: null, // Hide this tab from navigation
+            title: "Listings",
+            tabBarIcon: ({ color }) => <TabBarIcon name="list" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+            tabBarIcon: ({ color }) => <TabBarIcon name="person" color={color} />,
           }}
         />
       </Tabs>

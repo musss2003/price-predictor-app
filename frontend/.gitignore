@@ -1,43 +1,97 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# ==========================================
+# React Native / Expo Frontend .gitignore
+# ==========================================
 
-# dependencies
+# Dependencies
+# ------------
 node_modules/
+.pnp
+.pnp.js
 
 # Expo
+# ----
 .expo/
+.expo-shared/
 dist/
 web-build/
 expo-env.d.ts
 
-# Native
-.kotlin/
+# Native Builds
+# -------------
 *.orig.*
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
+*.ipa
+*.apk
+*.aab
+.kotlin/
 
-# Metro
+# Generated Native Folders
+# -------------------------
+/ios
+/android
+
+# Metro Bundler
+# -------------
 .metro-health-check*
+.metro-cache/
 
-# debug
+# Testing
+# -------
+coverage/
+.nyc_output/
+
+# Debug
+# -----
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+lerna-debug.log*
+.pnpm-debug.log*
 
-# macOS
-.DS_Store
-*.pem
-
-# local env files
+# Environment Variables
+# ---------------------
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .env*.local
 
-# typescript
+# TypeScript
+# ----------
 *.tsbuildinfo
+.tsbuildinfo
 
+# Build Output
+# ------------
+build/
+dist-ssr/
+
+# Temporary Files
+# ---------------
+.temp/
+.tmp/
+*.tmp
 app-example
 
-# generated native folders
-/ios
-/android
+# Lock Files (optional - uncomment if using different package manager)
+# ---------------------------------------------------------------------
+# yarn.lock
+# package-lock.json
+# pnpm-lock.yaml
+
+# Storybook
+# ---------
+storybook-static/
+
+# Bundle Analyzer
+# ---------------
+.next-bundle-analyzer/
+
+# Turborepo
+# ---------
+.turbo/
