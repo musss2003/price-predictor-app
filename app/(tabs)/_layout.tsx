@@ -29,12 +29,10 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => <TabBarIcon name="time" color={color} />,
           }}
         />
-        {/* Default second tab from Expo template, you can remove later if you want */}
         <Tabs.Screen
-          name="two"
+          name="explore"
           options={{
-            title: "Tab Two",
-            tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+            href: null, // Hide this tab from navigation
           }}
         />
       </Tabs>

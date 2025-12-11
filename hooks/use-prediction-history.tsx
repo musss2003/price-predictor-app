@@ -1,10 +1,16 @@
 import React, { createContext, ReactNode, useContext, useState } from "react";
 
 export type PredictionInput = {
-  city: string;
-  m2: number;
-  floor: number;
-  built: number;
+  longitude: number;
+  latitude: number;
+  condition: string;
+  ad_type: string;
+  property_type: string;
+  rooms: number;
+  square_m2: number;
+  equipment: string;
+  level: number;
+  heating: string;
 };
 
 export type PredictionRecord = {

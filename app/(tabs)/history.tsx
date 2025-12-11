@@ -1,13 +1,15 @@
+import { LinearGradient } from "expo-linear-gradient";
 import {
-    FlatList,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  FlatList,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import {
-    PredictionRecord,
-    usePredictionHistory,
+  PredictionRecord,
+  usePredictionHistory,
 } from "../../hooks/use-prediction-history";
 
 export default function HistoryScreen() {
@@ -15,40 +17,84 @@ export default function HistoryScreen() {
 
   const renderItem = ({ item }: { item: PredictionRecord }) => {
     const date = new Date(item.createdAt);
-    const formattedDate = date.toLocaleString();
+    const formattedDate = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
     return (
-      <View style={styles.card}>
-        <View style={styles.row}>
-          <Text style={styles.price}>{item.price.toLocaleString()} KM</Text>
+      <LinearGradient
+        colors={["#ffffff", "#f9fafb"]}
+        style={styles.card}
+      >
+        <View style={styles.cardHeader}>
+          <View>
+            <Text style={styles.price}>{item.price.toLocaleString()} KM</Text>
+            <Text style={styles.priceEur}>
+              ≈ €{(item.price / 2).toLocaleString()}
+            </Text>
+          </View>
           <Text style={styles.date}>{formattedDate}</Text>
         </View>
-        <Text style={styles.detail}>
-          {item.input.city} • {item.input.m2} m² • Floor {item.input.floor} • {item.input.built}
-        </Text>
-      </View>
+        <View style={styles.divider} />
+        <View style={styles.detailsContainer}>
+          <Text style={styles.detail}>
+            📍 {item.input.latitude.toFixed(4)}, {item.input.longitude.toFixed(4)}
+          </Text>
+          <Text style={styles.detail}>
+            🏠 {item.input.square_m2} m² • {item.input.rooms} rooms • Floor {item.input.level}
+          </Text>
+          <Text style={styles.detail}>
+            🏢 {item.input.property_type} • {item.input.condition}
+          </Text>
+          <Text style={styles.detail}>
+            🛋️ {item.input.equipment} • 🔥 {item.input.heating}
+          </Text>
+        </View>
+      </LinearGradient>
     );
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>History</Text>
-        {history.length > 0 && (
-          <Pressable onPress={clearHistory}>
-            <Text style={styles.clearText}>Clear</Text>
-          </Pressable>
-        )}
-      </View>
+      <StatusBar barStyle="light-content" />
+      
+      <LinearGradient
+        colors={["#667eea", "#764ba2"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>History</Text>
+            <Text style={styles.subtitle}>{history.length} predictions</Text>
+          </View>
+          {history.length > 0 && (
+            <Pressable onPress={clearHistory} style={styles.clearButton}>
+              <Text style={styles.clearText}>🗑️ Clear All</Text>
+            </Pressable>
+          )}
+        </View>
+      </LinearGradient>
 
       {history.length === 0 ? (
-        <Text style={styles.empty}>No predictions yet. Make one on the Predict tab.</Text>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyEmoji}>📊</Text>
+          <Text style={styles.empty}>No predictions yet</Text>
+          <Text style={styles.emptySubtext}>
+            Make your first prediction on the Predict tab!
+          </Text>
+        </View>
       ) : (
         <FlatList
           data={history}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={{ paddingBottom: 16 }}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
@@ -58,53 +104,121 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#f3f4f6",
+  },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#fff",
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#e0e7ff",
+    fontWeight: "500",
+    marginTop: 4,
+  },
+  clearButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
   clearText: {
-    color: "#b91c1c",
-    fontWeight: "600",
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  listContent: {
+    padding: 20,
+    paddingBottom: 32,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
   },
   empty: {
-    marginTop: 32,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#374151",
+    marginBottom: 8,
     textAlign: "center",
+  },
+  emptySubtext: {
+    fontSize: 14,
     color: "#6b7280",
+    textAlign: "center",
   },
   card: {
-    backgroundColor: "#fff",
-    padding: 14,
-    borderRadius: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  row: {
+  cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 4,
+    alignItems: "flex-start",
+    marginBottom: 16,
   },
   price: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#0f172a",
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#667eea",
+    marginBottom: 2,
+  },
+  priceEur: {
+    fontSize: 13,
+    color: "#9ca3af",
+    fontWeight: "600",
   },
   date: {
-    fontSize: 12,
-    color: "#6b7280",
+    fontSize: 11,
+    color: "#9ca3af",
+    fontWeight: "600",
+    backgroundColor: "#f3f4f6",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginBottom: 12,
+  },
+  detailsContainer: {
+    gap: 6,
   },
   detail: {
-    fontSize: 14,
-    color: "#4b5563",
-    marginTop: 2,
+    fontSize: 13,
+    color: "#6b7280",
+    fontWeight: "500",
+    lineHeight: 20,
   },
 });
