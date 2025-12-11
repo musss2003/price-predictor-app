@@ -14,8 +14,9 @@ import {
 // If you use expo-router Tabs, this will automatically become a tab screen
 
 // Adjust this to your real backend URL
+// Use your computer's local IP instead of localhost when testing on phone
 const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000";
+  process.env.EXPO_PUBLIC_API_URL ?? "http://10.0.199.127:8000";
 
 type Listing = {
   id: number;
@@ -166,7 +167,9 @@ const ListingsScreen: React.FC = () => {
           <View style={styles.col}>
             <Text style={styles.label}>Price per m²</Text>
             <Text style={styles.value}>
-              {pricePerM2 ? `${pricePerM2.toLocaleString("de-DE")} KM/m²` : "N/A"}
+              {pricePerM2
+                ? `${pricePerM2.toLocaleString("de-DE")} KM/m²`
+                : "N/A"}
             </Text>
           </View>
         </View>
