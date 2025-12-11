@@ -25,10 +25,7 @@ export default function HistoryScreen() {
     });
 
     return (
-      <LinearGradient
-        colors={["#ffffff", "#f9fafb"]}
-        style={styles.card}
-      >
+      <LinearGradient colors={["#ffffff", "#f9fafb"]} style={styles.card}>
         <View style={styles.cardHeader}>
           <View>
             <Text style={styles.price}>{item.price.toLocaleString()} KM</Text>
@@ -41,10 +38,12 @@ export default function HistoryScreen() {
         <View style={styles.divider} />
         <View style={styles.detailsContainer}>
           <Text style={styles.detail}>
-            📍 {item.input.latitude.toFixed(4)}, {item.input.longitude.toFixed(4)}
+            📍 {item.input.latitude.toFixed(4)},{" "}
+            {item.input.longitude.toFixed(4)}
           </Text>
           <Text style={styles.detail}>
-            🏠 {item.input.square_m2} m² • {item.input.rooms} rooms • Floor {item.input.level}
+            🏠 {item.input.square_m2} m² • {item.input.rooms} rooms • Floor{" "}
+            {item.input.level}
           </Text>
           <Text style={styles.detail}>
             🏢 {item.input.property_type} • {item.input.condition}
@@ -60,7 +59,7 @@ export default function HistoryScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
+
       <LinearGradient
         colors={["#667eea", "#764ba2"]}
         start={{ x: 0, y: 0 }}

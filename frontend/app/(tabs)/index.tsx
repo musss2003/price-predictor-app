@@ -95,7 +95,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
+
       {/* Header with gradient */}
       <LinearGradient
         colors={["#667eea", "#764ba2"]}
@@ -111,7 +111,7 @@ export default function HomeScreen() {
         style={styles.keyboardView}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
@@ -119,205 +119,209 @@ export default function HomeScreen() {
           <Text style={styles.subtitle}>
             Select a neighborhood from dropdown or tap directly on map
           </Text>
-        <View style={styles.pickerContainer}>
-          <SelectPicker
-            selectedValue={`${latitude},${longitude}`}
-            onValueChange={(value) => {
-              if (value !== "custom") {
-                const [lat, lon] = value.split(",").map(Number);
-                setLatitude(lat);
-                setLongitude(lon);
-              }
-            }}
-            items={[
-              { label: "Centar (Center)", value: "43.8563,18.4131" },
-              { label: "Novo Sarajevo", value: "43.8486,18.3917" },
-              { label: "Novi Grad", value: "43.8820,18.3550" },
-              { label: "Stari Grad (Old Town)", value: "43.8594,18.4311" },
-              { label: "Ilidža", value: "43.8270,18.3110" },
-              { label: "Vogošća", value: "43.9050,18.3420" },
-              { label: "Hadžići", value: "43.8230,18.2080" },
-              { label: "Ilijaš", value: "43.9510,18.2750" },
-              { label: "Custom (tap on map)", value: "custom" },
-            ]}
-            style={styles.picker}
-          />
-        </View>
-
-        <View style={styles.mapContainer}>
-          <MapView
-            style={styles.map}
-            initialRegion={{
-              latitude: 43.8563,
-              longitude: 18.4131,
-              latitudeDelta: 0.2,
-              longitudeDelta: 0.2,
-            }}
-            onPress={(e: any) => {
-              const coords = e.nativeEvent.coordinate;
-              setLatitude(coords.latitude);
-              setLongitude(coords.longitude);
-            }}
-          >
-            <Marker
-              coordinate={{
-                latitude,
-                longitude,
+          <View style={styles.pickerContainer}>
+            <SelectPicker
+              selectedValue={`${latitude},${longitude}`}
+              onValueChange={(value) => {
+                if (value !== "custom") {
+                  const [lat, lon] = value.split(",").map(Number);
+                  setLatitude(lat);
+                  setLongitude(lon);
+                }
               }}
-              title="Selected Location"
-              description={`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`}
-            />
-          </MapView>
-        </View>
-        
-        <View style={styles.coordInputs}>
-          <View style={styles.coordInputContainer}>
-            <Text style={styles.coordLabel}>Latitude</Text>
-            <TextInput
-              style={styles.coordInput}
-              value={latitude.toString()}
-              onChangeText={(text) => {
-                const num = parseFloat(text);
-                if (!isNaN(num)) setLatitude(num);
-              }}
-              placeholder="43.8563"
-              keyboardType="decimal-pad"
+              items={[
+                { label: "Centar (Center)", value: "43.8563,18.4131" },
+                { label: "Novo Sarajevo", value: "43.8486,18.3917" },
+                { label: "Novi Grad", value: "43.8820,18.3550" },
+                { label: "Stari Grad (Old Town)", value: "43.8594,18.4311" },
+                { label: "Ilidža", value: "43.8270,18.3110" },
+                { label: "Vogošća", value: "43.9050,18.3420" },
+                { label: "Hadžići", value: "43.8230,18.2080" },
+                { label: "Ilijaš", value: "43.9510,18.2750" },
+                { label: "Custom (tap on map)", value: "custom" },
+              ]}
+              style={styles.picker}
             />
           </View>
-          <View style={styles.coordInputContainer}>
-            <Text style={styles.coordLabel}>Longitude</Text>
-            <TextInput
-              style={styles.coordInput}
-              value={longitude.toString()}
-              onChangeText={(text) => {
-                const num = parseFloat(text);
-                if (!isNaN(num)) setLongitude(num);
+
+          <View style={styles.mapContainer}>
+            <MapView
+              style={styles.map}
+              initialRegion={{
+                latitude: 43.8563,
+                longitude: 18.4131,
+                latitudeDelta: 0.2,
+                longitudeDelta: 0.2,
               }}
-              placeholder="18.4131"
-              keyboardType="decimal-pad"
+              onPress={(e: any) => {
+                const coords = e.nativeEvent.coordinate;
+                setLatitude(coords.latitude);
+                setLongitude(coords.longitude);
+              }}
+            >
+              <Marker
+                coordinate={{
+                  latitude,
+                  longitude,
+                }}
+                title="Selected Location"
+                description={`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`}
+              />
+            </MapView>
+          </View>
+
+          <View style={styles.coordInputs}>
+            <View style={styles.coordInputContainer}>
+              <Text style={styles.coordLabel}>Latitude</Text>
+              <TextInput
+                style={styles.coordInput}
+                value={latitude.toString()}
+                onChangeText={(text) => {
+                  const num = parseFloat(text);
+                  if (!isNaN(num)) setLatitude(num);
+                }}
+                placeholder="43.8563"
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View style={styles.coordInputContainer}>
+              <Text style={styles.coordLabel}>Longitude</Text>
+              <TextInput
+                style={styles.coordInput}
+                value={longitude.toString()}
+                onChangeText={(text) => {
+                  const num = parseFloat(text);
+                  if (!isNaN(num)) setLongitude(num);
+                }}
+                placeholder="18.4131"
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
+          <Text style={styles.coordText}>
+            📍 {latitude.toFixed(4)}, {longitude.toFixed(4)}
+          </Text>
+
+          <Text style={styles.label}>Condition</Text>
+          <View style={styles.pickerContainer}>
+            <SelectPicker
+              selectedValue={condition}
+              onValueChange={setCondition}
+              items={[
+                { label: "Renovated", value: "Renovated" },
+                { label: "New", value: "New" },
+                { label: "Used", value: "Used" },
+              ]}
+              style={styles.picker}
             />
           </View>
-        </View>
-        <Text style={styles.coordText}>
-          📍 {latitude.toFixed(4)}, {longitude.toFixed(4)}
-        </Text>
 
-        <Text style={styles.label}>Condition</Text>
-        <View style={styles.pickerContainer}>
-          <SelectPicker
-            selectedValue={condition}
-            onValueChange={setCondition}
-            items={[
-              { label: "Renovated", value: "Renovated" },
-              { label: "New", value: "New" },
-              { label: "Used", value: "Used" },
-            ]}
-            style={styles.picker}
+          <Text style={styles.label}>Ad Type</Text>
+          <View style={styles.pickerContainer}>
+            <SelectPicker
+              selectedValue={adType}
+              onValueChange={setAdType}
+              items={[
+                { label: "Sale", value: "Sale" },
+                { label: "Rent", value: "Rent" },
+              ]}
+              style={styles.picker}
+            />
+          </View>
+
+          <Text style={styles.label}>Property Type</Text>
+          <View style={styles.pickerContainer}>
+            <SelectPicker
+              selectedValue={propertyType}
+              onValueChange={setPropertyType}
+              items={[
+                { label: "Apartment", value: "Apartment" },
+                { label: "House", value: "House" },
+              ]}
+              style={styles.picker}
+            />
+          </View>
+
+          <TextInput
+            style={styles.input}
+            value={rooms}
+            onChangeText={setRooms}
+            placeholder="Number of rooms *"
+            keyboardType="numeric"
           />
-        </View>
 
-        <Text style={styles.label}>Ad Type</Text>
-        <View style={styles.pickerContainer}>
-          <SelectPicker
-            selectedValue={adType}
-            onValueChange={setAdType}
-            items={[
-              { label: "Sale", value: "Sale" },
-              { label: "Rent", value: "Rent" },
-            ]}
-            style={styles.picker}
+          <TextInput
+            style={styles.input}
+            value={squareM2}
+            onChangeText={setSquareM2}
+            placeholder="Square meters *"
+            keyboardType="numeric"
           />
-        </View>
 
-        <Text style={styles.label}>Property Type</Text>
-        <View style={styles.pickerContainer}>
-          <SelectPicker
-            selectedValue={propertyType}
-            onValueChange={setPropertyType}
-            items={[
-              { label: "Apartment", value: "Apartment" },
-              { label: "House", value: "House" },
-            ]}
-            style={styles.picker}
+          <Text style={styles.label}>Equipment</Text>
+          <View style={styles.pickerContainer}>
+            <SelectPicker
+              selectedValue={equipment}
+              onValueChange={setEquipment}
+              items={[
+                { label: "Furnished", value: "Furnished" },
+                { label: "Semi-furnished", value: "Semi-furnished" },
+                { label: "Unfurnished", value: "Unfurnished" },
+              ]}
+              style={styles.picker}
+            />
+          </View>
+
+          <TextInput
+            style={styles.input}
+            value={level}
+            onChangeText={setLevel}
+            placeholder="Floor level *"
+            keyboardType="numeric"
           />
-        </View>
 
-        <TextInput
-          style={styles.input}
-          value={rooms}
-          onChangeText={setRooms}
-          placeholder="Number of rooms *"
-          keyboardType="numeric"
-        />
+          <Text style={styles.label}>Heating</Text>
+          <View style={styles.pickerContainer}>
+            <SelectPicker
+              selectedValue={heating}
+              onValueChange={setHeating}
+              items={[
+                { label: "Central", value: "Central" },
+                { label: "Gas", value: "Gas" },
+                { label: "Electric", value: "Electric" },
+                { label: "None", value: "None" },
+              ]}
+              style={styles.picker}
+            />
+          </View>
 
-        <TextInput
-          style={styles.input}
-          value={squareM2}
-          onChangeText={setSquareM2}
-          placeholder="Square meters *"
-          keyboardType="numeric"
-        />
+          <Pressable style={styles.button} onPress={predictPrice}>
+            <Text style={styles.buttonText}>Predict Price</Text>
+          </Pressable>
 
-        <Text style={styles.label}>Equipment</Text>
-        <View style={styles.pickerContainer}>
-          <SelectPicker
-            selectedValue={equipment}
-            onValueChange={setEquipment}
-            items={[
-              { label: "Furnished", value: "Furnished" },
-              { label: "Semi-furnished", value: "Semi-furnished" },
-              { label: "Unfurnished", value: "Unfurnished" },
-            ]}
-            style={styles.picker}
-          />
-        </View>
+          {loading && (
+            <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+          )}
 
-        <TextInput
-          style={styles.input}
-          value={level}
-          onChangeText={setLevel}
-          placeholder="Floor level *"
-          keyboardType="numeric"
-        />
+          {error !== "" && <Text style={styles.error}>{error}</Text>}
 
-        <Text style={styles.label}>Heating</Text>
-        <View style={styles.pickerContainer}>
-          <SelectPicker
-            selectedValue={heating}
-            onValueChange={setHeating}
-            items={[
-              { label: "Central", value: "Central" },
-              { label: "Gas", value: "Gas" },
-              { label: "Electric", value: "Electric" },
-              { label: "None", value: "None" },
-            ]}
-            style={styles.picker}
-          />
-        </View>
-
-        <Pressable style={styles.button} onPress={predictPrice}>
-          <Text style={styles.buttonText}>Predict Price</Text>
-        </Pressable>
-
-        {loading && <ActivityIndicator size="large" style={{ marginTop: 20 }} />}
-
-        {error !== "" && <Text style={styles.error}>{error}</Text>}
-
-        {price !== null && (
-          <LinearGradient
-            colors={["#10b981", "#059669"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.resultBox}
-          >
-            <Text style={styles.resultLabel}>💰 Predicted Price</Text>
-            <Text style={styles.resultValue}>{price.toLocaleString()} KM</Text>
-            <Text style={styles.resultSubtext}>
-              ≈ €{(price / 2).toLocaleString()} EUR
-            </Text>
-          </LinearGradient>
-        )}
-      </ScrollView>
+          {price !== null && (
+            <LinearGradient
+              colors={["#10b981", "#059669"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.resultBox}
+            >
+              <Text style={styles.resultLabel}>💰 Predicted Price</Text>
+              <Text style={styles.resultValue}>
+                {price.toLocaleString()} KM
+              </Text>
+              <Text style={styles.resultSubtext}>
+                ≈ €{(price / 2).toLocaleString()} EUR
+              </Text>
+            </LinearGradient>
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
     </View>
   );
