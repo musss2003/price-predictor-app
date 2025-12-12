@@ -3,17 +3,22 @@ import React, { useState, useEffect, useMemo } from 'react'
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
   StatusBar,
   Linking,
   Modal,
-  TextInput,
   ScrollView,
+  TextInput,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { MotiView } from 'moti'
+import { Skeleton } from 'moti/skeleton'
+import { FlashList } from '@shopify/flash-list'
+import { Chip, Searchbar, FAB } from 'react-native-paper'
+import { BlurView } from 'expo-blur'
+import * as Haptics from 'expo-haptics'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.199.127:8000'
 
@@ -175,7 +180,7 @@ export default function ListingsScreen() {
     }
   }
 
-  const ListingCard = React.memo(({ item }: { item: Listing }) => {
+  const ListingCard = React.memo(({ item, index }: { item: Listing; index: number }) => {
     const dealColor = 
       item.deal_score >= 90 ? '#10b981' :
       item.deal_score >= 70 ? '#3b82f6' :
@@ -187,11 +192,19 @@ export default function ListingsScreen() {
       item.deal_score >= 50 ? 'Fair Price' : 'Overpriced'
 
     return (
-      <TouchableOpacity 
-        style={styles.card}
-        onPress={() => openListing(item.url)}
-        activeOpacity={0.7}
+      <MotiView
+        from={{ opacity: 0, translateY: 50 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'timing', duration: 400, delay: index * 50 }}
       >
+        <TouchableOpacity 
+          style={styles.card}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+            openListing(item.url)
+          }}
+          activeOpacity={0.7}
+        >
         <View style={styles.cardHeader}>
           <View style={styles.priceContainer}>
             <Text style={styles.price}>{item.price_numeric?.toLocaleString() || 'N/A'} KM</Text>
@@ -245,13 +258,29 @@ export default function ListingsScreen() {
           <Ionicons name="open-outline" size={20} color="#667eea" />
         </View>
       </TouchableOpacity>
+      </MotiView>
     )
   })
 
   ListingCard.displayName = 'ListingCard'
 
-  const renderListing = ({ item }: { item: Listing }) => (
-    <ListingCard item={item} />
+  const renderListing = ({ item, index }: { item: Listing; index: number }) => (
+    <ListingCard item={item} index={index} />
+  )
+
+  const SkeletonCard = () => (
+    <MotiView style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Skeleton colorMode="light" width={120} height={32} />
+        <Skeleton colorMode="light" width={60} height={40} radius={12} />
+      </View>
+      <Skeleton colorMode="light" width="100%" height={44} />
+      <View style={{ marginTop: 12, gap: 8 }}>
+        <Skeleton colorMode="light" width="80%" height={20} />
+        <Skeleton colorMode="light" width="90%" height={20} />
+        <Skeleton colorMode="light" width="70%" height={20} />
+      </View>
+    </MotiView>
   )
 
   return (
@@ -265,7 +294,7 @@ export default function ListingsScreen() {
         style={styles.header}
       >
         <View style={styles.headerContent}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Property Listings</Text>
             <Text style={styles.headerSubtitle}>
               {loading && totalCount === 0 
@@ -274,77 +303,123 @@ export default function ListingsScreen() {
               }
             </Text>
           </View>
-          <TouchableOpacity 
-            style={styles.filterButton}
-            onPress={() => setShowFilters(true)}
-          >
-            <Ionicons name="options" size={24} color="#fff" />
-            {activeFilterCount > 0 && (
-              <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
       </LinearGradient>
 
       {activeFilterCount > 0 && (
-        <View style={styles.activeFiltersBar}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.activeFiltersContent}>
-              <Text style={styles.activeFiltersLabel}>Filters:</Text>
-              {filters.priceMin && (
-                <View style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>Min: {filters.priceMin} KM</Text>
-                </View>
-              )}
-              {filters.priceMax && (
-                <View style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>Max: {filters.priceMax} KM</Text>
-                </View>
-              )}
-              {filters.municipality && (
-                <View style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>{filters.municipality}</Text>
-                </View>
-              )}
-              {filters.propertyType && (
-                <View style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>{filters.propertyType}</Text>
-                </View>
-              )}
-              {filters.roomsMin && (
-                <View style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>{filters.roomsMin}+ rooms</Text>
-                </View>
-              )}
-              {filters.sizeMin && (
-                <View style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>{filters.sizeMin}+ m²</Text>
-                </View>
-              )}
-              {filters.condition && (
-                <View style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>{filters.condition}</Text>
-                </View>
-              )}
-              {filters.dealScoreMin && (
-                <View style={styles.filterChip}>
-                  <Text style={styles.filterChipText}>Score {filters.dealScoreMin}+</Text>
-                </View>
-              )}
-              <TouchableOpacity onPress={clearFilters} style={styles.clearFiltersButton}>
-                <Text style={styles.clearFiltersText}>Clear All</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
+        <MotiView
+          from={{ opacity: 0, translateY: -20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          exit={{ opacity: 0, translateY: -20 }}
+        >
+          <BlurView intensity={80} tint="light" style={styles.activeFiltersBar}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.activeFiltersContent}>
+                <Text style={styles.activeFiltersLabel}>Filters:</Text>
+                {filters.priceMin && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, priceMin: '' }))}
+                  >
+                    Min: {filters.priceMin} KM
+                  </Chip>
+                )}
+                {filters.priceMax && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, priceMax: '' }))}
+                  >
+                    Max: {filters.priceMax} KM
+                  </Chip>
+                )}
+                {filters.municipality && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, municipality: '' }))}
+                  >
+                    {filters.municipality}
+                  </Chip>
+                )}
+                {filters.propertyType && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, propertyType: '' }))}
+                  >
+                    {filters.propertyType}
+                  </Chip>
+                )}
+                {filters.roomsMin && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, roomsMin: '' }))}
+                  >
+                    {filters.roomsMin}+ rooms
+                  </Chip>
+                )}
+                {filters.sizeMin && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, sizeMin: '' }))}
+                  >
+                    {filters.sizeMin}+ m²
+                  </Chip>
+                )}
+                {filters.condition && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, condition: '' }))}
+                  >
+                    {filters.condition}
+                  </Chip>
+                )}
+                {filters.dealScoreMin && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, dealScoreMin: '' }))}
+                  >
+                    Score {filters.dealScoreMin}+
+                  </Chip>
+                )}
+                <Chip 
+                  icon="close-circle"
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+                    clearFilters()
+                  }}
+                  style={styles.clearChip}
+                  textStyle={styles.clearChipText}
+                >
+                  Clear All
+                </Chip>
+              </View>
+            </ScrollView>
+          </BlurView>
+        </MotiView>
       )}
 
       {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#667eea" />
-          <Text style={styles.loadingText}>Loading listings...</Text>
+        <View style={styles.container}>
+          <View style={{ padding: 16, gap: 16 }}>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </View>
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
@@ -363,30 +438,40 @@ export default function ListingsScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={listings}
           renderItem={renderListing}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshing={loading}
           onRefresh={handleRefresh}
+          refreshing={loading}
           onEndReached={handleLoadMore}
-          onEndReachedThreshold={1.5}
-          maxToRenderPerBatch={5}
-          windowSize={7}
-          removeClippedSubviews={true}
-          initialNumToRender={10}
-          updateCellsBatchingPeriod={100}
+          onEndReachedThreshold={0.5}
           ListFooterComponent={
             loadingMore ? (
-              <View style={styles.footerLoader}>
+              <MotiView
+                from={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                style={styles.footerLoader}
+              >
                 <ActivityIndicator size="small" color="#667eea" />
-              </View>
+              </MotiView>
             ) : null
           }
         />
       )}
+
+      <FAB
+        icon="filter-variant"
+        style={styles.fab}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+          setShowFilters(true)
+        }}
+        label={activeFilterCount > 0 ? `Filters (${activeFilterCount})` : undefined}
+        size={activeFilterCount > 0 ? 'medium' : 'small'}
+      />
 
       <Modal
         visible={showFilters}
@@ -432,12 +517,13 @@ export default function ListingsScreen() {
 
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionTitle}>📍 Location</Text>
-                <TextInput
-                  style={styles.filterInputFull}
+                <Searchbar
                   placeholder="Search municipality..."
-                  placeholderTextColor="#999"
                   value={filters.municipality}
                   onChangeText={(text) => setFilters(prev => ({ ...prev, municipality: text }))}
+                  style={styles.searchbar}
+                  iconColor="#667eea"
+                  inputStyle={{ fontSize: 16 }}
                 />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
                   {municipalities.slice(0, 10).map(m => (
@@ -616,37 +702,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     opacity: 0.9,
   },
-  filterButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#ef4444',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#667eea',
-  },
-  filterBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
   activeFiltersBar: {
-    backgroundColor: '#fff',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    overflow: 'hidden',
   },
   activeFiltersContent: {
     flexDirection: 'row',
@@ -657,27 +715,38 @@ const styles = StyleSheet.create({
   activeFiltersLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
+    color: '#333',
+    marginRight: 8,
   },
-  filterChip: {
+  modernChip: {
     backgroundColor: '#667eea',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    marginRight: 8,
   },
-  filterChipText: {
+  modernChipText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
   },
-  clearFiltersButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  clearChip: {
+    backgroundColor: '#ef4444',
   },
-  clearFiltersText: {
-    color: '#667eea',
+  clearChipText: {
+    color: '#fff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  searchbar: {
+    backgroundColor: '#f8f9fa',
+    elevation: 0,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  fab: {
+    position: 'absolute',
+    margin: 16,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#667eea',
   },
   centerContainer: {
     flex: 1,
@@ -719,14 +788,14 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    elevation: 4,
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
   cardHeader: {
     flexDirection: 'row',
