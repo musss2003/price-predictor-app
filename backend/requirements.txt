@@ -6,3 +6,16 @@ supabase
 python-dotenv
 email-validator
 scikit-learn
+
+# Web scraping
+beautifulsoup4
+requests
+lxml
+
+# Database & async
+sqlalchemy
+asyncio
+psycopg2-binary
+
+# Scheduling (optional)
+APScheduler

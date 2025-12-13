@@ -1,0 +1,356 @@
+# api_favorites.py
+"""
+User favorites and saved listings API
+Works with the new multi-source database structure
+"""
+
+from fastapi import APIRouter, HTTPException, Depends, Header
+from typing import Optional
+from pydantic import BaseModel
+from datetime import datetime
+from supabase import Client
+import os
+from dotenv import load_dotenv
+from supabase import create_client
+from auth import AuthService
+
+load_dotenv()
+
+router = APIRouter()
+
+# Initialize clients
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(supabase_url, supabase_key)
+auth_service = AuthService(supabase)
+
+
+class AddFavoriteRequest(BaseModel):
+    source: str  # 'olx' or 'nekretnine'
+    listing_id: int
+    notes: Optional[str] = None
+
+
+class RemoveFavoriteRequest(BaseModel):
+    source: str
+    listing_id: int
+
+
+# ============================================================
+#              USER FAVORITES
+# ============================================================
+
+@router.post("/api/v2/favorites")
+async def add_favorite(
+    request: AddFavoriteRequest,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    Add a listing to user's favorites
+    """
+    try:
+        # Check if already favorited
+        existing = supabase.table("user_favorites") \
+            .select("*") \
+            .eq("user_id", current_user["id"]) \
+            .eq("source", request.source) \
+            .eq("listing_id", request.listing_id) \
+            .execute()
+        
+        if existing.data:
+            return {
+                "success": True,
+                "message": "Listing already in favorites",
+                "data": existing.data[0]
+            }
+        
+        # Add to favorites
+        favorite_data = {
+            "user_id": current_user["id"],
+            "source": request.source,
+            "listing_id": request.listing_id,
+            "notes": request.notes,
+            "saved_at": datetime.now().isoformat()
+        }
+        
+        response = supabase.table("user_favorites").insert(favorite_data).execute()
+        
+        return {
+            "success": True,
+            "message": "Added to favorites",
+            "data": response.data[0] if response.data else None
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding favorite: {str(e)}")
+
+
+@router.get("/api/v2/favorites")
+async def get_favorites(
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    Get all user's favorite listings with full details
+    Uses the get_user_favorites() database function
+    """
+    try:
+        # Call the database function
+        response = supabase.rpc("get_user_favorites", {"p_user_id": current_user["id"]}).execute()
+        
+        return {
+            "success": True,
+            "data": response.data,
+            "count": len(response.data) if response.data else 0
+        }
+    
+    except Exception as e:
+        # Fallback to manual query if function doesn't exist yet
+        try:
+            favorites = supabase.table("user_favorites") \
+                .select("*") \
+                .eq("user_id", current_user["id"]) \
+                .order("saved_at", desc=True) \
+                .execute()
+            
+            # Manually fetch listing details
+            result = []
+            for fav in favorites.data:
+                table = f"listings_{fav['source']}"
+                listing = supabase.table(table).select("*").eq("id", fav["listing_id"]).execute()
+                
+                if listing.data:
+                    listing_data = listing.data[0]
+                    listing_data["source"] = fav["source"]
+                    listing_data["saved_at"] = fav["saved_at"]
+                    listing_data["notes"] = fav.get("notes")
+                    result.append(listing_data)
+            
+            return {
+                "success": True,
+                "data": result,
+                "count": len(result)
+            }
+        except Exception as fallback_error:
+            raise HTTPException(status_code=500, detail=f"Error fetching favorites: {str(fallback_error)}")
+
+
+@router.delete("/api/v2/favorites")
+async def remove_favorite(
+    request: RemoveFavoriteRequest,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    Remove a listing from user's favorites
+    """
+    try:
+        response = supabase.table("user_favorites") \
+            .delete() \
+            .eq("user_id", current_user["id"]) \
+            .eq("source", request.source) \
+            .eq("listing_id", request.listing_id) \
+            .execute()
+        
+        return {
+            "success": True,
+            "message": "Removed from favorites"
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error removing favorite: {str(e)}")
+
+
+@router.get("/api/v2/favorites/check/{source}/{listing_id}")
+async def check_favorite(
+    source: str,
+    listing_id: int,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    Check if a listing is in user's favorites
+    """
+    try:
+        response = supabase.table("user_favorites") \
+            .select("*") \
+            .eq("user_id", current_user["id"]) \
+            .eq("source", source) \
+            .eq("listing_id", listing_id) \
+            .execute()
+        
+        is_favorite = len(response.data) > 0
+        
+        return {
+            "success": True,
+            "is_favorite": is_favorite,
+            "data": response.data[0] if is_favorite else None
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+#              SAVED SEARCHES
+# ============================================================
+
+class SavedSearchRequest(BaseModel):
+    search_name: str
+    search_criteria: dict
+    notification_enabled: bool = False
+
+
+@router.post("/api/v2/saved-searches")
+async def create_saved_search(
+    request: SavedSearchRequest,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    Save a search query with optional notifications
+    """
+    try:
+        search_data = {
+            "user_id": current_user["id"],
+            "search_name": request.search_name,
+            "search_criteria": request.search_criteria,
+            "notification_enabled": request.notification_enabled,
+            "created_at": datetime.now().isoformat()
+        }
+        
+        response = supabase.table("user_saved_searches").insert(search_data).execute()
+        
+        return {
+            "success": True,
+            "message": "Search saved successfully",
+            "data": response.data[0] if response.data else None
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving search: {str(e)}")
+
+
+@router.get("/api/v2/saved-searches")
+async def get_saved_searches(
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    Get all user's saved searches
+    """
+    try:
+        response = supabase.table("user_saved_searches") \
+            .select("*") \
+            .eq("user_id", current_user["id"]) \
+            .order("created_at", desc=True) \
+            .execute()
+        
+        return {
+            "success": True,
+            "data": response.data,
+            "count": len(response.data) if response.data else 0
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/api/v2/saved-searches/{search_id}")
+async def delete_saved_search(
+    search_id: int,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    Delete a saved search
+    """
+    try:
+        response = supabase.table("user_saved_searches") \
+            .delete() \
+            .eq("id", search_id) \
+            .eq("user_id", current_user["id"]) \
+            .execute()
+        
+        return {
+            "success": True,
+            "message": "Saved search deleted"
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+#              USER NOTIFICATIONS
+# ============================================================
+
+@router.get("/api/v2/notifications")
+async def get_notifications(
+    unread_only: bool = False,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    Get user notifications
+    """
+    try:
+        query = supabase.table("user_notifications") \
+            .select("*") \
+            .eq("user_id", current_user["id"])
+        
+        if unread_only:
+            query = query.eq("is_read", False)
+        
+        query = query.order("created_at", desc=True).limit(50)
+        
+        response = query.execute()
+        
+        return {
+            "success": True,
+            "data": response.data,
+            "count": len(response.data) if response.data else 0
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/api/v2/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: int,
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    Mark a notification as read
+    """
+    try:
+        response = supabase.table("user_notifications") \
+            .update({"is_read": True, "read_at": datetime.now().isoformat()}) \
+            .eq("id", notification_id) \
+            .eq("user_id", current_user["id"]) \
+            .execute()
+        
+        return {
+            "success": True,
+            "message": "Notification marked as read"
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/v2/notifications/mark-all-read")
+async def mark_all_notifications_read(
+    current_user: dict = Depends(auth_service.get_current_user)
+):
+    """
+    Mark all user notifications as read
+    """
+    try:
+        response = supabase.table("user_notifications") \
+            .update({"is_read": True, "read_at": datetime.now().isoformat()}) \
+            .eq("user_id", current_user["id"]) \
+            .eq("is_read", False) \
+            .execute()
+        
+        return {
+            "success": True,
+            "message": "All notifications marked as read"
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

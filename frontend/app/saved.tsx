@@ -4,49 +4,61 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { getSavedListings, removeSavedListing } from '@/services/api'
+import { getFavorites, removeFromFavorites } from '@/services/api'
 
-interface Listing {
+interface Favorite {
   id: number
-  title: string
-  price_numeric: number
-  municipality: string
-  property_type: string
-  rooms: number
-  square_m2: number
-  url: string
-  condition: string
+  user_id: string
+  source: 'olx' | 'nekretnine'
+  listing_id: number
+  notes: string | null
+  created_at: string
+  listing: {
+    id: number
+    source: 'olx' | 'nekretnine'
+    title: string
+    price_numeric: number
+    municipality: string
+    property_type: string
+    rooms: number
+    square_m2: number
+    url: string
+    condition: string
+    deal_score: number
+  }
 }
 
 export default function SavedListingsScreen() {
   const { user } = useAuth()
-  const [listings, setListings] = useState<Listing[]>([])
+  const [favorites, setFavorites] = useState<Favorite[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!user) {
       router.replace('/auth/signin')
     } else {
-      loadSavedListings()
+      loadFavorites()
     }
   }, [user])
 
-  const loadSavedListings = async () => {
+  const loadFavorites = async () => {
     setLoading(true)
     try {
-      const data = await getSavedListings()
-      setListings(data)
+      const result = await getFavorites()
+      if (result.success) {
+        setFavorites(result.data || [])
+      }
     } catch (error) {
-      console.error('Failed to load saved listings:', error)
+      console.error('Failed to load favorites:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleRemove = async (listingId: number) => {
+  const handleRemove = async (source: 'olx' | 'nekretnine', listingId: number) => {
     Alert.alert(
-      'Remove Listing',
-      'Are you sure you want to remove this from your saved listings?',
+      'Remove Favorite',
+      'Are you sure you want to remove this from your favorites?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -54,10 +66,10 @@ export default function SavedListingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await removeSavedListing(listingId)
-              setListings(prev => prev.filter(l => l.id !== listingId))
+              await removeFromFavorites(source, listingId)
+              setFavorites(prev => prev.filter(f => !(f.source === source && f.listing_id === listingId)))
             } catch {
-              Alert.alert('Error', 'Failed to remove listing')
+              Alert.alert('Error', 'Failed to remove favorite')
             }
           }
         }
@@ -65,64 +77,93 @@ export default function SavedListingsScreen() {
     )
   }
 
-  const renderListing = useCallback(({ item }: { item: Listing }) => (
-    <View style={styles.card}>
-      <TouchableOpacity
-        onPress={() => item.url && Linking.openURL(item.url)}
-        style={styles.cardContent}
-        activeOpacity={0.7}
-      >
-        <View style={styles.cardTop}>
-          <View style={styles.priceContainer}>
-            <Text style={styles.price}>{item.price_numeric?.toLocaleString() || 'N/A'} KM</Text>
-            <Text style={styles.priceEur}>≈ €{((item.price_numeric || 0) / 2).toLocaleString()}</Text>
-          </View>
-          <TouchableOpacity 
-            onPress={() => handleRemove(item.id)}
-            style={styles.heartButton}
-          >
-            <Ionicons name="heart" size={28} color="#ef4444" />
-          </TouchableOpacity>
-        </View>
+  const renderFavorite = useCallback(({ item }: { item: Favorite }) => {
+    const listing = item.listing
+    const dealColor = 
+      listing.deal_score >= 90 ? '#10b981' :
+      listing.deal_score >= 70 ? '#3b82f6' :
+      listing.deal_score >= 50 ? '#f59e0b' : '#ef4444'
+    
+    const sourceColor = item.source === 'olx' ? '#4A90E2' : '#E2574C'
+    const sourceLabel = item.source === 'olx' ? 'OLX' : 'Nekretnine'
 
-        <Text style={styles.title} numberOfLines={2}>
-          {item.title || 'No title'}
-        </Text>
-
-        <View style={styles.details}>
-          <View style={styles.detailRow}>
-            <View style={styles.iconBadge}>
-              <Ionicons name="location" size={16} color="#667eea" />
+    return (
+      <View style={styles.card}>
+        <TouchableOpacity
+          onPress={() => listing.url && Linking.openURL(listing.url)}
+          style={styles.cardContent}
+          activeOpacity={0.7}
+        >
+          <View style={styles.cardTop}>
+            <View style={styles.priceContainer}>
+              <Text style={styles.price}>{listing.price_numeric?.toLocaleString() || 'N/A'} KM</Text>
+              <Text style={styles.priceEur}>≈ €{((listing.price_numeric || 0) / 2).toLocaleString()}</Text>
             </View>
-            <Text style={styles.detailText}>{item.municipality}</Text>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <View style={[styles.sourceBadge, { backgroundColor: sourceColor }]}>
+                <Text style={styles.sourceText}>{sourceLabel}</Text>
+              </View>
+              <View style={[styles.dealBadge, { backgroundColor: dealColor }]}>
+                <Text style={styles.dealScore}>{listing.deal_score}</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => handleRemove(item.source, item.listing_id)}
+                style={styles.heartButton}
+              >
+                <Ionicons name="heart" size={28} color="#ef4444" />
+              </TouchableOpacity>
+            </View>
           </View>
-          
-          <View style={styles.detailRow}>
-            <View style={styles.iconBadge}>
-              <Ionicons name="home" size={16} color="#667eea" />
+
+          <Text style={styles.title} numberOfLines={2}>
+            {listing.title || 'No title'}
+          </Text>
+
+          {item.notes && (
+            <View style={styles.notesContainer}>
+              <Ionicons name="document-text" size={14} color="#667eea" />
+              <Text style={styles.notesText} numberOfLines={2}>{item.notes}</Text>
             </View>
-            <Text style={styles.detailText}>
-              {item.property_type} • {item.rooms} rooms • {item.square_m2} m²
+          )}
+
+          <View style={styles.details}>
+            <View style={styles.detailRow}>
+              <View style={styles.iconBadge}>
+                <Ionicons name="location" size={16} color="#667eea" />
+              </View>
+              <Text style={styles.detailText}>{listing.municipality}</Text>
+            </View>
+            
+            <View style={styles.detailRow}>
+              <View style={styles.iconBadge}>
+                <Ionicons name="home" size={16} color="#667eea" />
+              </View>
+              <Text style={styles.detailText}>
+                {listing.property_type} • {listing.rooms} rooms • {listing.square_m2} m²
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <View style={styles.iconBadge}>
+                <Ionicons name="hammer" size={16} color="#667eea" />
+              </View>
+              <Text style={styles.detailText}>{listing.condition}</Text>
+            </View>
+          </View>
+
+          <View style={styles.footer}>
+            <View style={styles.openButton}>
+              <Ionicons name="open-outline" size={18} color="#667eea" />
+              <Text style={styles.openText}>View Listing</Text>
+            </View>
+            <Text style={styles.savedDate}>
+              Saved {new Date(item.created_at).toLocaleDateString()}
             </Text>
           </View>
-
-          <View style={styles.detailRow}>
-            <View style={styles.iconBadge}>
-              <Ionicons name="hammer" size={16} color="#667eea" />
-            </View>
-            <Text style={styles.detailText}>{item.condition}</Text>
-          </View>
-        </View>
-
-        <View style={styles.footer}>
-          <View style={styles.openButton}>
-            <Ionicons name="open-outline" size={18} color="#667eea" />
-            <Text style={styles.openText}>View Listing</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    </View>
-  ), [])
+        </TouchableOpacity>
+      </View>
+    )
+  }, [])
 
   return (
     <View style={styles.container}>
@@ -137,7 +178,7 @@ export default function SavedListingsScreen() {
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>Saved Listings</Text>
             <Text style={styles.headerSubtitle}>
-              {loading ? 'Loading...' : `${listings.length} saved ${listings.length === 1 ? 'property' : 'properties'}`}
+              {loading ? 'Loading...' : `${favorites.length} saved ${favorites.length === 1 ? 'property' : 'properties'}`}
             </Text>
           </View>
         </View>
@@ -146,9 +187,9 @@ export default function SavedListingsScreen() {
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#667eea" />
-          <Text style={styles.loadingText}>Loading your saved listings...</Text>
+          <Text style={styles.loadingText}>Loading your favorites...</Text>
         </View>
-      ) : listings.length === 0 ? (
+      ) : favorites.length === 0 ? (
         <View style={styles.centerContainer}>
           <View style={styles.emptyIcon}>
             <Ionicons name="heart-outline" size={80} color="#667eea" />
@@ -172,12 +213,12 @@ export default function SavedListingsScreen() {
         </View>
       ) : (
         <FlatList
-          data={listings}
-          renderItem={renderListing}
-          keyExtractor={(item) => item.id.toString()}
+          data={favorites}
+          renderItem={renderFavorite}
+          keyExtractor={(item) => `${item.source}-${item.listing_id}`}
           contentContainerStyle={styles.listContent}
           refreshing={loading}
-          onRefresh={loadSavedListings}
+          onRefresh={loadFavorites}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -309,12 +350,49 @@ const styles = StyleSheet.create({
   heartButton: {
     padding: 8,
   },
+  sourceBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  sourceText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#fff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  dealBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  dealScore: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
   title: {
     fontSize: 17,
     fontWeight: '600',
     color: '#1a1a1a',
     lineHeight: 24,
     marginBottom: 16,
+  },
+  notesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#f0f4ff',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  notesText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#667eea',
+    fontStyle: 'italic',
   },
   details: {
     gap: 12,
@@ -338,6 +416,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
@@ -346,16 +427,15 @@ const styles = StyleSheet.create({
   openButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#f0f4ff',
-    borderRadius: 12,
+    gap: 6,
   },
   openText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#667eea',
+  },
+  savedDate: {
+    fontSize: 12,
+    color: '#999',
   },
 })

@@ -16,6 +16,8 @@ from models import (
     UserPreferences, SavedListing, UserInterest,
     AuthResponse, MessageResponse
 )
+from api_enhanced import router as enhanced_router
+from api_favorites import router as favorites_router
 
 # Load environment variables
 load_dotenv()
@@ -33,6 +35,10 @@ supabase_admin: Client = create_client(supabase_url, supabase_service_key) if su
 auth_service = AuthService(supabase)
 
 app = FastAPI(title="Real Estate Price Predictor API", version="1.0.0")
+
+# Include enhanced API routers
+app.include_router(enhanced_router, tags=["Enhanced Listings API"])
+app.include_router(favorites_router, tags=["User Favorites & Saved Searches"])
 
 # Allow your Expo App to connect
 app.add_middleware(

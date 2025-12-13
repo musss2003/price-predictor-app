@@ -4,15 +4,37 @@ A full-stack application for predicting real estate prices in Sarajevo, Bosnia a
 
 ## ✨ Features
 
+### Core Features
 - 🔐 **User Authentication** - Secure signup/signin with Supabase Auth
 - 👤 **User Profiles** - Personalized profiles with search preferences
 - 🏠 **Price Prediction** - AI-powered real estate price estimation
-- 📍 **Map Integration** - Location-based property selection
+- 📍 **Map Integration** - Location-based property selection with GPS coordinates
 - ⭐ **Saved Listings** - Favorite properties for later review
 - 🎯 **Smart Recommendations** - Personalized listings based on preferences
 - 📊 **Prediction History** - Track all your price predictions
 - 💾 **Cloud Storage** - All data securely stored in Supabase
 - 🎨 **Modern UI** - Beautiful gradient design with dark mode support
+
+### 🆕 Enhanced Property Data (NEW!)
+- **🗺️ GPS Coordinates** - Precise location data for map visualization
+- **🏢 Rich Property Details** - 20+ additional fields including:
+  - Full address extraction
+  - Number of bathrooms
+  - Property orientation
+  - Floor type
+  - Year built
+  - Publication date
+- **✅ Amenity Detection** - Automatic detection of:
+  - Elevator/Lift
+  - Garage
+  - Parking space
+  - Balcony
+  - Internet connection
+  - Cable TV
+  - Basement/Attic
+- **🔍 Advanced Filtering** - Filter by amenities and location
+- **📏 Distance Search** - Find properties within X km of a location
+- **🧠 Smart Scraping** - Adaptive extraction that handles varying listing formats
 
 ## 🏗️ Project Structure
 
@@ -130,9 +152,107 @@ Property price predictions
 - `predicted_price`
 
 ### `listings`
-Real estate property listings
-- Property details, location, pricing
+Real estate property listings scraped from multiple sources
+- Property details (title, price, size, rooms)
+- **🆕 Geographic data** (latitude, longitude)
+- **🆕 Property details** (address, bathrooms, orientation, floor_type, year_built)
+- **🆕 Amenities** (has_garage, has_elevator, has_balcony, has_parking, has_internet, has_cable_tv, has_basement)
+- **🆕 Flexible storage** (extra_fields JSONB for variable data)
+- Multiple images per listing
 - Deal scores and analysis
+
+See [backend/database_auth_setup.sql](./backend/database_auth_setup.sql) for complete schema.
+
+## 🕷️ Web Scraping System
+
+### Overview
+The app includes an advanced web scraping system that extracts property data from multiple sources:
+
+- **OLX Bosnia** - Primary source with 20+ extracted fields per listing
+- **Adaptive extraction** - Automatically handles varying HTML structures
+- **Multi-image support** - Extracts all property photos from carousels
+- **Geographic extraction** - Parses GPS coordinates from Google Maps embeds
+- **Smart field mapping** - Automatically categorizes and normalizes property attributes
+
+### Running the Scraper
+
+```bash
+cd backend
+
+# Quick test (2 pages)
+python sync_service_supabase.py --source olx_ba --max-pages 2
+
+# Full sync (all pages)
+python sync_service_supabase.py --source olx_ba --max-pages 10
+```
+
+### Enhanced Fields System
+
+The scraper now extracts **20+ additional property fields**:
+
+**Geographic Data:**
+- GPS coordinates (latitude/longitude) from Google Maps embeds
+- Full street address
+
+**Property Details:**
+- Number of bathrooms
+- Primary orientation (North, South, East, West)
+- Floor type (Parquet, Tiles, etc.)
+- Year built
+- Publication date
+
+**Amenities (Boolean flags):**
+- Elevator/Lift
+- Garage
+- Parking space
+- Balcony
+- Internet connection
+- Cable TV
+- Basement/Attic storage
+
+**Flexible Storage:**
+- Unmapped fields stored in JSONB for future use
+- Automatic field discovery and extraction
+
+### Database Migration
+
+To add the enhanced fields to your database:
+
+```bash
+cd backend/migrations
+
+# Install psycopg2 if needed
+pip install psycopg2-binary
+
+# Run migration
+python run_enhanced_fields_migration.py
+```
+
+**What's Added:**
+- 15+ new database columns
+- 6 performance indexes (including spatial and JSONB)
+- 2 utility views (listings_with_location, listings_with_amenities)
+- 1 distance calculation function (Haversine formula)
+
+### Field Mapping
+
+The sync service automatically maps Bosnian field names to English database columns:
+
+| Bosnian Field | Database Column | Type |
+|--------------|-----------------|------|
+| adresa | address | TEXT |
+| broj_kupatila | bathrooms | INTEGER |
+| primarna_orjentacija | orientation | TEXT |
+| vrsta_poda | floor_type | TEXT |
+| godina_izgradnje | year_built | TEXT |
+| garaža | has_garage | BOOLEAN |
+| lift | has_elevator | BOOLEAN |
+| balkon | has_balcony | BOOLEAN |
+
+**Documentation:**
+- 📖 [ENHANCED_FIELDS_GUIDE.md](./backend/ENHANCED_FIELDS_GUIDE.md) - Complete implementation guide
+- 🚀 [DEPLOYMENT_CHECKLIST.md](./backend/DEPLOYMENT_CHECKLIST.md) - Step-by-step deployment
+- 📊 [IMPLEMENTATION_SUMMARY.md](./backend/IMPLEMENTATION_SUMMARY.md) - Feature overview
 
 See [backend/database_auth_setup.sql](./backend/database_auth_setup.sql) for complete schema.
 

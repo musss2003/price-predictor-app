@@ -19,11 +19,12 @@ import { FlashList } from '@shopify/flash-list'
 import { Chip, Searchbar, FAB } from 'react-native-paper'
 import { BlurView } from 'expo-blur'
 import * as Haptics from 'expo-haptics'
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.199.127:8000'
+import { router } from 'expo-router'
+import { getListingsV2, getFilterOptions, type ListingsParams } from '@/services/api'
 
 interface Listing {
   id: number
+  source: 'olx' | 'nekretnine'
   title: string
   price_numeric: number
   municipality: string
@@ -36,17 +37,33 @@ interface Listing {
   equipment: string
   heating: string
   level: string
+  ad_type?: string
+  latitude?: number
+  longitude?: number
 }
 
 interface Filters {
+  source: 'all' | 'olx' | 'nekretnine'
   priceMin: string
   priceMax: string
   municipality: string
   propertyType: string
+  adType: string
   roomsMin: string
+  roomsMax: string
   sizeMin: string
+  sizeMax: string
   condition: string
   dealScoreMin: string
+}
+
+interface FilterOptions {
+  municipalities: string[]
+  property_types: string[]
+  ad_types: string[]
+  price_range: { min: number; max: number; step: number }
+  rooms_range: { min: number; max: number; step: number }
+  size_range: { min: number; max: number; step: number }
 }
 
 export default function ListingsScreen() {
@@ -59,21 +76,50 @@ export default function ListingsScreen() {
   const [offset, setOffset] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
   const LIMIT = 50
+  
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
+    municipalities: [],
+    property_types: [],
+    ad_types: [],
+    price_range: { min: 0, max: 1000000, step: 10000 },
+    rooms_range: { min: 0, max: 10, step: 0.5 },
+    size_range: { min: 0, max: 500, step: 10 }
+  })
+  
   const [filters, setFilters] = useState<Filters>({
+    source: 'all',
     priceMin: '',
     priceMax: '',
     municipality: '',
     propertyType: '',
+    adType: '',
     roomsMin: '',
+    roomsMax: '',
     sizeMin: '',
+    sizeMax: '',
     condition: '',
     dealScoreMin: '',
   })
 
   useEffect(() => {
+    loadFilterOptions()
+  }, [])
+
+  useEffect(() => {
     fetchListings(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters])
+
+  const loadFilterOptions = async () => {
+    try {
+      const result = await getFilterOptions()
+      if (result.success) {
+        setFilterOptions(result.filters)
+      }
+    } catch (err) {
+      console.error('Failed to load filter options:', err)
+    }
+  }
 
   const fetchListings = async (reset: boolean = false) => {
     if (reset) {
@@ -91,26 +137,30 @@ export default function ListingsScreen() {
       const currentOffset = reset ? 0 : offset
       
       // Build query parameters with filters
-      const params = new URLSearchParams({
-        limit: LIMIT.toString(),
-        offset: currentOffset.toString(),
-        sort: 'deal_score_desc',
-      })
+      const params: ListingsParams = {
+        limit: LIMIT,
+        offset: currentOffset,
+        source: filters.source
+      }
       
-      if (filters.priceMin) params.append('price_min', filters.priceMin)
-      if (filters.priceMax) params.append('price_max', filters.priceMax)
-      if (filters.municipality) params.append('municipality', filters.municipality)
-      if (filters.propertyType) params.append('property_type', filters.propertyType)
-      if (filters.roomsMin) params.append('rooms_min', filters.roomsMin)
-      if (filters.sizeMin) params.append('size_min', filters.sizeMin)
-      if (filters.condition) params.append('condition', filters.condition)
-      if (filters.dealScoreMin) params.append('deal_score_min', filters.dealScoreMin)
+      if (filters.priceMin) params.price_min = Number(filters.priceMin)
+      if (filters.priceMax) params.price_max = Number(filters.priceMax)
+      if (filters.municipality) params.municipality = filters.municipality
+      if (filters.propertyType) params.property_type = filters.propertyType
+      if (filters.adType) params.ad_type = filters.adType
+      if (filters.roomsMin) params.rooms_min = Number(filters.roomsMin)
+      if (filters.roomsMax) params.rooms_max = Number(filters.roomsMax)
+      if (filters.sizeMin) params.size_min = Number(filters.sizeMin)
+      if (filters.sizeMax) params.size_max = Number(filters.sizeMax)
+      if (filters.dealScoreMin) params.deal_score_min = Number(filters.dealScoreMin)
       
-      const response = await fetch(`${API_URL}/listings?${params.toString()}`)
-      if (!response.ok) throw new Error('Failed to fetch')
+      const result = await getListingsV2(params)
       
-      const result = await response.json()
-      const data = result.data || result
+      if (!result.success) {
+        throw new Error('Failed to fetch listings')
+      }
+      
+      const data = result.data || []
       const total = result.total || 0
       
       setTotalCount(total)
@@ -143,31 +193,43 @@ export default function ListingsScreen() {
   }
 
   const activeFilterCount = useMemo(() => {
-    return Object.values(filters).filter(value => value !== '').length
+    return Object.entries(filters).filter(([key, value]) => key !== 'source' && value !== '' && value !== 'all').length
   }, [filters])
 
   const clearFilters = () => {
     setFilters({
+      source: 'all',
       priceMin: '',
       priceMax: '',
       municipality: '',
       propertyType: '',
+      adType: '',
       roomsMin: '',
+      roomsMax: '',
       sizeMin: '',
+      sizeMax: '',
       condition: '',
       dealScoreMin: '',
     })
   }
 
   const municipalities = useMemo(() => {
-    const unique = [...new Set(listings.map(l => l.municipality).filter(Boolean))]
-    return unique.sort()
-  }, [listings])
+    return filterOptions.municipalities.length > 0 
+      ? filterOptions.municipalities 
+      : [...new Set(listings.map(l => l.municipality).filter(Boolean))].sort()
+  }, [filterOptions.municipalities, listings])
 
   const propertyTypes = useMemo(() => {
-    const unique = [...new Set(listings.map(l => l.property_type).filter(Boolean))]
-    return unique.sort()
-  }, [listings])
+    return filterOptions.property_types.length > 0
+      ? filterOptions.property_types
+      : [...new Set(listings.map(l => l.property_type).filter(Boolean))].sort()
+  }, [filterOptions.property_types, listings])
+
+  const adTypes = useMemo(() => {
+    return filterOptions.ad_types.length > 0
+      ? filterOptions.ad_types
+      : [...new Set(listings.map(l => l.ad_type).filter(Boolean))].sort()
+  }, [filterOptions.ad_types, listings])
 
   const conditions = useMemo(() => {
     const unique = [...new Set(listings.map(l => l.condition).filter(Boolean))]
@@ -191,6 +253,9 @@ export default function ListingsScreen() {
       item.deal_score >= 70 ? 'Good Deal' :
       item.deal_score >= 50 ? 'Fair Price' : 'Overpriced'
 
+    const sourceColor = item.source === 'olx' ? '#4A90E2' : '#E2574C'
+    const sourceLabel = item.source === 'olx' ? 'OLX' : 'Nekretnine'
+
     return (
       <MotiView
         from={{ opacity: 0, translateY: 50 }}
@@ -212,8 +277,13 @@ export default function ListingsScreen() {
               ≈ €{((item.price_numeric || 0) / 2).toLocaleString()}
             </Text>
           </View>
-          <View style={[styles.dealBadge, { backgroundColor: dealColor }]}>
-            <Text style={styles.dealScore}>{item.deal_score}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <View style={[styles.sourceBadge, { backgroundColor: sourceColor }]}>
+              <Text style={styles.sourceText}>{sourceLabel}</Text>
+            </View>
+            <View style={[styles.dealBadge, { backgroundColor: dealColor }]}>
+              <Text style={styles.dealScore}>{item.deal_score}</Text>
+            </View>
           </View>
         </View>
 
@@ -303,6 +373,26 @@ export default function ListingsScreen() {
               }
             </Text>
           </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                router.push('/search')
+              }}
+            >
+              <Ionicons name="search" size={20} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                router.push('/statistics')
+              }}
+            >
+              <Ionicons name="stats-chart" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
@@ -316,6 +406,16 @@ export default function ListingsScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.activeFiltersContent}>
                 <Text style={styles.activeFiltersLabel}>Filters:</Text>
+                {filters.source !== 'all' && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, source: 'all' }))}
+                  >
+                    {filters.source.toUpperCase()}
+                  </Chip>
+                )}
                 {filters.priceMin && (
                   <Chip 
                     mode="flat" 
@@ -356,6 +456,16 @@ export default function ListingsScreen() {
                     {filters.propertyType}
                   </Chip>
                 )}
+                {filters.adType && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, adType: '' }))}
+                  >
+                    {filters.adType}
+                  </Chip>
+                )}
                 {filters.roomsMin && (
                   <Chip 
                     mode="flat" 
@@ -366,6 +476,16 @@ export default function ListingsScreen() {
                     {filters.roomsMin}+ rooms
                   </Chip>
                 )}
+                {filters.roomsMax && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, roomsMax: '' }))}
+                  >
+                    ≤{filters.roomsMax} rooms
+                  </Chip>
+                )}
                 {filters.sizeMin && (
                   <Chip 
                     mode="flat" 
@@ -374,6 +494,16 @@ export default function ListingsScreen() {
                     onClose={() => setFilters(prev => ({ ...prev, sizeMin: '' }))}
                   >
                     {filters.sizeMin}+ m²
+                  </Chip>
+                )}
+                {filters.sizeMax && (
+                  <Chip 
+                    mode="flat" 
+                    style={styles.modernChip}
+                    textStyle={styles.modernChipText}
+                    onClose={() => setFilters(prev => ({ ...prev, sizeMax: '' }))}
+                  >
+                    ≤{filters.sizeMax} m²
                   </Chip>
                 )}
                 {filters.condition && (
@@ -493,6 +623,32 @@ export default function ListingsScreen() {
 
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
               <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>📦 Data Source</Text>
+                <View style={styles.chipWrap}>
+                  {['all', 'olx', 'nekretnine'].map(source => (
+                    <TouchableOpacity
+                      key={source}
+                      style={[
+                        styles.selectChip,
+                        filters.source === source && styles.selectChipActive
+                      ]}
+                      onPress={() => setFilters(prev => ({ 
+                        ...prev, 
+                        source: source as 'all' | 'olx' | 'nekretnine'
+                      }))}
+                    >
+                      <Text style={[
+                        styles.selectChipText,
+                        filters.source === source && styles.selectChipTextActive
+                      ]}>
+                        {source === 'all' ? 'All Sources' : source.toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.filterSection}>
                 <Text style={styles.filterSectionTitle}>💰 Price Range (KM)</Text>
                 <View style={styles.filterRow}>
                   <TextInput
@@ -572,6 +728,30 @@ export default function ListingsScreen() {
               </View>
 
               <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>📝 Ad Type</Text>
+                <View style={styles.chipWrap}>
+                  {adTypes.map(type => (
+                    <TouchableOpacity
+                      key={type}
+                      style={[
+                        styles.selectChip,
+                        filters.adType === type && styles.selectChipActive
+                      ]}
+                      onPress={() => setFilters(prev => ({ 
+                        ...prev, 
+                        adType: prev.adType === type ? '' : type || ''
+                      }))}
+                    >
+                      <Text style={[
+                        styles.selectChipText,
+                        filters.adType === type && styles.selectChipTextActive
+                      ]}>{type}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.filterSection}>
                 <Text style={styles.filterSectionTitle}>🛏️ Property Details</Text>
                 <View style={styles.filterRow}>
                   <View style={{ flex: 1 }}>
@@ -586,6 +766,19 @@ export default function ListingsScreen() {
                     />
                   </View>
                   <View style={{ flex: 1 }}>
+                    <Text style={styles.filterLabel}>Max Rooms</Text>
+                    <TextInput
+                      style={styles.filterInput}
+                      placeholder="e.g., 4"
+                      placeholderTextColor="#999"
+                      value={filters.roomsMax}
+                      onChangeText={(text) => setFilters(prev => ({ ...prev, roomsMax: text }))}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+                <View style={styles.filterRow}>
+                  <View style={{ flex: 1 }}>
                     <Text style={styles.filterLabel}>Min Size (m²)</Text>
                     <TextInput
                       style={styles.filterInput}
@@ -593,6 +786,17 @@ export default function ListingsScreen() {
                       placeholderTextColor="#999"
                       value={filters.sizeMin}
                       onChangeText={(text) => setFilters(prev => ({ ...prev, sizeMin: text }))}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.filterLabel}>Max Size (m²)</Text>
+                    <TextInput
+                      style={styles.filterInput}
+                      placeholder="e.g., 100"
+                      placeholderTextColor="#999"
+                      value={filters.sizeMax}
+                      onChangeText={(text) => setFilters(prev => ({ ...prev, sizeMax: text }))}
                       keyboardType="numeric"
                     />
                   </View>
@@ -690,6 +894,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 32,
@@ -825,6 +1041,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  sourceBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  sourceText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#fff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   title: {
     fontSize: 16,

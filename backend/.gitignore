@@ -65,6 +65,7 @@ pytestdebug.log
 # ----------------
 .ipynb_checkpoints
 *.ipynb
+*.md
 
 # IPython
 # -------
