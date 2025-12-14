@@ -25,16 +25,23 @@ export const useFavorites = () => {
       const result = await favoritesService.getFavorites()
 
       if (result.success && result.favorites) {
-        setFavorites(result.favorites)
+        // Ensure favorites is an array
+        const favoritesArray = Array.isArray(result.favorites) ? result.favorites : []
+        setFavorites(favoritesArray)
         // Create a Set of favorite IDs for quick lookup
         const ids = new Set(
-          result.favorites.map((fav) => `${fav.id}-${fav.source}`)
+          favoritesArray.map((fav) => `${fav.id}-${fav.source}`)
         )
         setFavoriteIds(ids)
       } else {
+        setFavorites([])
+        setFavoriteIds(new Set())
         setError(result.error || 'Failed to load favorites')
       }
     } catch (err) {
+      console.error('Error loading favorites:', err)
+      setFavorites([])
+      setFavoriteIds(new Set())
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)

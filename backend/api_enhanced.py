@@ -31,6 +31,7 @@ async def get_listings_v2(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     source: Optional[str] = Query(None, regex="^(olx|nekretnine|all)$"),
+    search: Optional[str] = None,
     municipality: Optional[str] = None,
     property_type: Optional[str] = None,
     ad_type: Optional[str] = None,
@@ -47,7 +48,7 @@ async def get_listings_v2(
     """
     Get property listings with advanced filtering
     - Supports multi-source querying (olx, nekretnine, or all)
-    - Rich filtering options
+    - Rich filtering options including search
     - Pagination support
     """
     try:
@@ -61,6 +62,12 @@ async def get_listings_v2(
         
         # Build query
         query = supabase.table(table).select("*", count="exact")
+        
+        # Apply search filter (searches in title, municipality, and description)
+        if search:
+            # Use 'or' filter to search across multiple fields
+            search_term = f"%{search}%"
+            query = query.or_(f"title.ilike.{search_term},municipality.ilike.{search_term},description.ilike.{search_term}")
         
         # Apply filters
         if municipality:
@@ -113,10 +120,16 @@ async def get_listings_v2(
         # Execute query
         response = query.execute()
         
+        # Add source field to each listing if querying from individual tables
+        data = response.data
+        if source in ["olx", "nekretnine"]:
+            for listing in data:
+                listing["source"] = source
+        
         return {
             "success": True,
-            "data": response.data,
-            "count": len(response.data),
+            "data": data,
+            "count": len(data),
             "total": response.count if hasattr(response, 'count') else None,
             "offset": offset,
             "limit": limit

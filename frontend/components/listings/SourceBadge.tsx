@@ -14,12 +14,17 @@ interface SourceBadgeProps {
 }
 
 export const SourceBadge: React.FC<SourceBadgeProps> = ({ source, size = 'medium' }) => {
+  // Early return if source is invalid
+  if (!source || typeof source !== 'string') {
+    return null
+  }
+  
   const config = getSourceConfig(source)
   
   const sizeStyles = {
-    small: { paddingHorizontal: 6, paddingVertical: 1 },
-    medium: { paddingHorizontal: 10, paddingVertical: 2},
-    large: { paddingHorizontal: 14, paddingVertical: 3 }
+    small: { paddingHorizontal: 0, paddingVertical: 1 },
+    medium: { paddingHorizontal: 0, paddingVertical: 2},
+    large: { paddingHorizontal: 0, paddingVertical: 3 }
   }
   
   const textSizeStyles = {
@@ -42,6 +47,31 @@ export const SourceBadge: React.FC<SourceBadgeProps> = ({ source, size = 'medium
         style={imageSizeStyles[size]}
         resizeMode="contain"
       />
+    )
+  } else if (source === 'nekretnine') {
+    return (
+      <Image
+        source={require('@/assets/images/nekretnine-icon.png')}
+        style={imageSizeStyles[size]}
+        resizeMode="contain"
+      />
+    )
+  }
+  
+  // Fallback for unknown sources or when config is not available
+  if (!config) {
+    return (
+      <View
+        style={[
+          styles.badge,
+          { backgroundColor: '#9ca3af' },
+          sizeStyles[size]
+        ]}
+      >
+        <Text style={[styles.text, textSizeStyles[size]]}>
+          {source.toUpperCase()}
+        </Text>
+      </View>
     )
   }
   

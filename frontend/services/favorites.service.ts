@@ -4,12 +4,21 @@
  */
 
 import { DataSource, Listing } from '@/types/listing.types'
+import { supabase } from './supabase'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'
 
 export interface FavoriteStatus {
   isFavorite: boolean
   favoriteId?: string
+}
+
+/**
+ * Get authorization header with current session token
+ */
+const getAuthHeader = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? `Bearer ${session.access_token}` : ''
 }
 
 /**
@@ -20,29 +29,38 @@ export const addFavorite = async (
   source: DataSource
 ): Promise<{ success: boolean; favoriteId?: string; error?: string }> => {
   try {
-    const response = await fetch(`${API_URL}/api/favorites/add`, {
+    const authToken = await getAuthHeader()
+    
+    const response = await fetch(`${API_URL}/api/v2/favorites`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': authToken
       },
       body: JSON.stringify({
-        listing_id: listingId,
+        listing_id: parseInt(listingId, 10),
         source
       })
     })
 
-    const data = await response.json()
-
     if (!response.ok) {
+      const text = await response.text()
+      let errorMessage = 'Failed to add favorite'
+      try {
+        const data = JSON.parse(text)
+        errorMessage = data.detail || data.error || errorMessage
+      } catch {
+        errorMessage = text.substring(0, 100)
+      }
+      console.error('Add favorite failed:', response.status, errorMessage)
       return {
         success: false,
-        error: data.error || 'Failed to add favorite'
+        error: errorMessage
       }
     }
 
     return {
-      success: true,
-      favoriteId: data.id
+      success: true
     }
   } catch (error) {
     console.error('Error adding favorite:', error)
@@ -61,20 +79,22 @@ export const removeFavorite = async (
   source: DataSource
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const response = await fetch(`${API_URL}/api/favorites/remove`, {
+    const authToken = await getAuthHeader()
+    
+    const response = await fetch(`${API_URL}/api/v2/favorites`, {
       method: 'DELETE',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': authToken
       },
       body: JSON.stringify({
-        listing_id: listingId,
+        listing_id: parseInt(listingId, 10),
         source
       })
     })
 
-    const data = await response.json()
-
     if (!response.ok) {
+      const data = await response.json()
       return {
         success: false,
         error: data.error || 'Failed to remove favorite'
@@ -102,20 +122,29 @@ export const getFavorites = async (): Promise<{
   error?: string
 }> => {
   try {
-    const response = await fetch(`${API_URL}/api/favorites`)
-
-    const data = await response.json()
+    const authToken = await getAuthHeader()
+    
+    const response = await fetch(`${API_URL}/api/v2/favorites`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authToken
+      }
+    })
 
     if (!response.ok) {
+      const data = await response.json()
       return {
         success: false,
         error: data.error || 'Failed to get favorites'
       }
     }
 
+    const data = await response.json()
+
     return {
       success: true,
-      favorites: data.favorites || []
+      favorites: data.data || []  // API returns {success, data, count}
     }
   } catch (error) {
     console.error('Error getting favorites:', error)

@@ -11,11 +11,12 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   StatusBar,
-  ScrollView
+  ScrollView,
+  TextInput
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { FlashList } from '@shopify/flash-list'
-import { FAB, Chip } from 'react-native-paper'
+import { Chip } from 'react-native-paper'
 import { BlurView } from 'expo-blur'
 import { MotiView } from 'moti'
 import { Skeleton } from 'moti/skeleton'
@@ -30,8 +31,12 @@ import { Listing } from '@/types/listing.types'
 
 export default function ExploreScreen() {
   const [showFilters, setShowFilters] = useState(false)
+  const [showSortMenu, setShowSortMenu] = useState(false)
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high' | 'deal-score'>('newest')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [layoutMode, setLayoutMode] = useState<'list' | 'grid'>('list')
   
   const {
     listings,
@@ -59,25 +64,98 @@ export default function ExploreScreen() {
     setSelectedListing(null)
   }
 
+  const handleSearch = () => {
+    setFilters({ ...filters, search: searchQuery })
+  }
+
+  const handleClearSearch = () => {
+    setSearchQuery('')
+    setFilters({ ...filters, search: '' })
+  }
+
   const activeFilterCount = useMemo(() => {
     return Object.entries(filters).filter(
       ([key, value]) => key !== 'source' && value !== '' && value !== 'all'
     ).length
   }, [filters])
 
+  const sortedListings = useMemo(() => {
+    const sorted = [...listings]
+    switch (sortBy) {
+      case 'price-low':
+        return sorted.sort((a, b) => (a.price_numeric || 0) - (b.price_numeric || 0))
+      case 'price-high':
+        return sorted.sort((a, b) => (b.price_numeric || 0) - (a.price_numeric || 0))
+      case 'deal-score':
+        return sorted.sort((a, b) => (b.deal_score || 0) - (a.deal_score || 0))
+      case 'newest':
+      default:
+        return sorted
+    }
+  }, [listings, sortBy])
+
+  const bestDeals = useMemo(() => {
+    return [...listings]
+      .filter(l => l.deal_score && l.deal_score > 0)
+      .sort((a, b) => (b.deal_score || 0) - (a.deal_score || 0))
+      .slice(0, 5)
+  }, [listings])
+
+  const getSortLabel = () => {
+    switch (sortBy) {
+      case 'price-low': return 'Price: Low to High'
+      case 'price-high': return 'Price: High to Low'
+      case 'deal-score': return 'Best Deals'
+      case 'newest': return 'Newest First'
+      default: return 'Sort'
+    }
+  }
+
   const renderListing = ({ item, index }: { item: Listing; index: number }) => (
-    <ListingCard
-      listing={item}
-      index={index}
-      onPress={handleListingPress}
-      onToggleFavorite={toggleFavorite}
-      isFavorite={isFavorite(item)}
-      showSource
-    />
+    <View style={layoutMode === 'grid' ? styles.gridItem : undefined}>
+      <ListingCard
+        listing={item}
+        index={index}
+        onPress={handleListingPress}
+        onToggleFavorite={toggleFavorite}
+        isFavorite={isFavorite(item)}
+        showSource
+        compact={layoutMode === 'grid'}
+      />
+    </View>
   )
 
   const ListHeaderComponent = () => (
     <>
+      {/* Best Deals Carousel */}
+      {bestDeals.length > 0 && (
+        <View style={styles.bestDealsSection}>
+          <View style={styles.bestDealsHeader}>
+            <Ionicons name="star" size={20} color="#667eea" />
+            <Text style={styles.bestDealsTitle}>Best Deals</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.carouselContent}
+          >
+            {bestDeals.map((listing, index) => (
+              <View key={`${listing.source}-${listing.id}`} style={styles.carouselCard}>
+                <ListingCard
+                  listing={listing}
+                  index={index}
+                  onPress={handleListingPress}
+                  onToggleFavorite={toggleFavorite}
+                  isFavorite={isFavorite(listing)}
+                  showSource={false}
+                  compact
+                />
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {activeFilterCount > 0 && (
         <MotiView
           from={{ opacity: 0, translateY: -20 }}
@@ -287,6 +365,114 @@ export default function ExploreScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
+      {/* Top Filter/Sort Bar */}
+      <BlurView intensity={95} tint="light" style={styles.topBar}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by location, title..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={handleClearSearch} style={styles.clearSearchButton}>
+              <Ionicons name="close-circle" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.topBarContent}>
+          <TouchableOpacity
+            style={[styles.topBarButton, activeFilterCount > 0 && styles.topBarButtonActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              setShowFilters(true)
+            }}
+          >
+            <Ionicons
+              name="filter"
+              size={20}
+              color={activeFilterCount > 0 ? '#fff' : '#667eea'}
+            />
+            <Text style={[styles.topBarButtonText, activeFilterCount > 0 && styles.topBarButtonTextActive]}>
+              Filter {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.resultCount}>
+            <Text style={styles.resultCountText}>{totalCount || 0} results</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.topBarIconButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              setLayoutMode(layoutMode === 'list' ? 'grid' : 'list')
+            }}
+          >
+            <Ionicons 
+              name={layoutMode === 'list' ? 'grid-outline' : 'list-outline'} 
+              size={20} 
+              color="#667eea" 
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.topBarButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              setShowSortMenu(!showSortMenu)
+            }}
+          >
+            <Ionicons name="swap-vertical" size={20} color="#667eea" />
+            <Text style={styles.topBarButtonText}>{getSortLabel()}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Sort Menu Dropdown */}
+        {showSortMenu && (
+          <MotiView
+            from={{ opacity: 0, translateY: -10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            exit={{ opacity: 0, translateY: -10 }}
+            style={styles.sortMenu}
+          >
+            {[
+              { id: 'newest', label: 'Newest First', icon: 'time-outline' },
+              { id: 'price-low', label: 'Price: Low to High', icon: 'arrow-up' },
+              { id: 'price-high', label: 'Price: High to Low', icon: 'arrow-down' },
+              { id: 'deal-score', label: 'Best Deals', icon: 'star' }
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                style={[styles.sortOption, sortBy === option.id && styles.sortOptionActive]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                  setSortBy(option.id as any)
+                  setShowSortMenu(false)
+                }}
+              >
+                <Ionicons
+                  name={option.icon as any}
+                  size={18}
+                  color={sortBy === option.id ? '#667eea' : '#666'}
+                />
+                <Text style={[styles.sortOptionText, sortBy === option.id && styles.sortOptionTextActive]}>
+                  {option.label}
+                </Text>
+                {sortBy === option.id && (
+                  <Ionicons name="checkmark" size={20} color="#667eea" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </MotiView>
+        )}
+      </BlurView>
+
       {/* Content */}
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -314,9 +500,11 @@ export default function ExploreScreen() {
         </View>
       ) : (
         <FlashList
-          data={listings}
+          data={sortedListings}
           renderItem={renderListing}
           keyExtractor={(item) => `${item.source}-${item.id}`}
+          numColumns={layoutMode === 'grid' ? 2 : 1}
+          key={layoutMode}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           onRefresh={refresh}
@@ -338,17 +526,7 @@ export default function ExploreScreen() {
         />
       )}
 
-      {/* Filter FAB */}
-      <FAB
-        icon="filter-variant"
-        style={styles.fab}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-          setShowFilters(true)
-        }}
-        label={activeFilterCount > 0 ? `Filters (${activeFilterCount})` : undefined}
-        size={activeFilterCount > 0 ? 'medium' : 'small'}
-      />
+
 
       {/* Filter Modal */}
       <FilterModal
@@ -376,8 +554,119 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f5f5'
+  },
+  topBar: {
+    paddingTop: 50,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)'
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     backgroundColor: '#f5f5f5',
-    paddingTop: 50
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0'
+  },
+  searchIcon: {
+    marginRight: 8
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#333',
+    padding: 0
+  },
+  clearSearchButton: {
+    padding: 4
+  },
+  topBarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    gap: 12
+  },
+  topBarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#667eea',
+    backgroundColor: '#fff'
+  },
+  topBarIconButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#667eea',
+    backgroundColor: '#fff'
+  },
+  topBarButtonActive: {
+    backgroundColor: '#667eea',
+    borderColor: '#667eea'
+  },
+  topBarButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#667eea'
+  },
+  topBarButtonTextActive: {
+    color: '#fff'
+  },
+  resultCount: {
+    flex: 1,
+    alignItems: 'center'
+  },
+  resultCountText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666'
+  },
+  sortMenu: {
+    marginTop: 8,
+    marginHorizontal: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0'
+  },
+  sortOptionActive: {
+    backgroundColor: '#f5f5ff'
+  },
+  sortOptionText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333'
+  },
+  sortOptionTextActive: {
+    fontWeight: '600',
+    color: '#667eea'
   },
   activeFiltersBar: {
     paddingVertical: 12,
@@ -450,12 +739,33 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16
   },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#667eea'
+  gridItem: {
+    flex: 1,
+    margin: 4,
+    maxWidth: '48%'
+  },
+  bestDealsSection: {
+    marginBottom: 16
+  },
+  bestDealsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12
+  },
+  bestDealsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a1a'
+  },
+  carouselContent: {
+    paddingHorizontal: 12,
+    gap: 12
+  },
+  carouselCard: {
+    width: 280
   },
   skeletonCard: {
     backgroundColor: '#fff',

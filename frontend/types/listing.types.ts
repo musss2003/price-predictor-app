@@ -40,6 +40,7 @@ export interface Listing {
 
 export interface ListingFilters {
   source: DataSource
+  search: string
   priceMin: string
   priceMax: string
   municipality: string
@@ -63,7 +64,10 @@ export interface FilterOptions {
 }
 
 export interface ListingsParams {
+  limit?: number
+  offset?: number
   source?: DataSource
+  search?: string
   municipality?: string
   property_type?: string
   ad_type?: string
@@ -74,8 +78,6 @@ export interface ListingsParams {
   size_min?: number
   size_max?: number
   deal_score_min?: number
-  limit?: number
-  offset?: number
 }
 
 export interface ListingsResponse {

@@ -18,6 +18,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { BlurView } from 'expo-blur'
+import MapView, { Marker } from 'react-native-maps'
 import * as Haptics from 'expo-haptics'
 import { Listing } from '@/types/listing.types'
 import { SourceBadge } from './SourceBadge'
@@ -51,9 +52,15 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
 
   if (!listing) return null
 
-  const dealColor = getDealScoreColor(listing.deal_score)
-  const dealLabel = getDealScoreLabel(listing.deal_score)
-  const images = listing.image_urls || (listing.thumbnail_url ? [listing.thumbnail_url] : [])
+  const dealColor = getDealScoreColor(listing.deal_score || 0)
+  const dealLabel = getDealScoreLabel(listing.deal_score || 0)
+  
+  // Ensure images is always an array - robust handling
+  const images = Array.isArray(listing.image_urls) && listing.image_urls.length > 0
+    ? listing.image_urls.filter(url => url && typeof url === 'string')
+    : listing.thumbnail_url && typeof listing.thumbnail_url === 'string'
+    ? [listing.thumbnail_url] 
+    : []
 
   const handleOpenUrl = () => {
     if (listing.url) {
@@ -87,7 +94,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               <Ionicons name="close" size={28} color="#fff" />
             </TouchableOpacity>
             <View style={styles.headerBadges}>
-              <SourceBadge source={listing.source} size="medium" />
+              {listing.source ? <SourceBadge source={listing.source} size="large" /> : null}
             </View>
             <TouchableOpacity onPress={handleToggleFavorite} style={styles.headerButton}>
               <Ionicons
@@ -121,13 +128,13 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                   />
                 ))}
               </ScrollView>
-              {images.length > 1 && (
+              {images.length > 1 ? (
                 <BlurView intensity={80} tint="dark" style={styles.imageCounter}>
                   <Text style={styles.imageCounterText}>
                     {imageIndex + 1} / {images.length}
                   </Text>
                 </BlurView>
-              )}
+              ) : null}
             </View>
           ) : (
             <View style={[styles.image, styles.noImage]}>
@@ -136,27 +143,58 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             </View>
           )}
 
-          {/* Price and Deal Score */}
+          {/* Modern Price Section */}
           <View style={styles.priceSection}>
-            <View>
-              <Text style={styles.price}>{formatPrice(listing.price_numeric)}</Text>
-              {listing.price_numeric && (
-                <Text style={styles.priceEur}>{formatPriceEur(listing.price_numeric)}</Text>
-              )}
-              {listing.square_m2 && listing.price_numeric && (
-                <Text style={styles.pricePerM2}>
-                  {Math.round(listing.price_numeric / listing.square_m2)} KM/m²
-                </Text>
-              )}
+            {/* Main Price */}
+            <View style={styles.priceContainer}>
+              <Text style={styles.priceLabel}>Price</Text>
+              <Text style={styles.price}>
+                {listing.price_numeric ? formatPrice(listing.price_numeric) : 'Price on request'}
+              </Text>
+              <View style={styles.priceDetailsRow}>
+                {listing.price_numeric && (
+                  <Text style={styles.priceEur}>{formatPriceEur(listing.price_numeric)}</Text>
+                )}
+                {listing.square_m2 && listing.price_numeric && (
+                  <>
+                    <View style={styles.priceSeparator} />
+                    <Text style={styles.pricePerM2}>
+                      {Math.round(listing.price_numeric / listing.square_m2)} KM/m²
+                    </Text>
+                  </>
+                )}
+              </View>
             </View>
-            <View style={[styles.dealScoreBadge, { backgroundColor: dealColor }]}>
-              <Text style={styles.dealScoreNumber}>{listing.deal_score}</Text>
-              <Text style={styles.dealScoreLabel}>{dealLabel}</Text>
+
+            {/* Deal Score Card */}
+            <View style={styles.dealScoreCard}>
+              <View style={styles.dealScoreHeader}>
+                <Ionicons
+                  name={
+                    (listing.deal_score || 0) >= 8
+                      ? "star"
+                      : (listing.deal_score || 0) >= 6
+                      ? "star-half"
+                      : "star-outline"
+                  }
+                  size={24}
+                  color={dealColor}
+                />
+                <Text style={styles.dealScoreTitle}>Deal Score</Text>
+              </View>
+              <View style={styles.dealScoreContent}>
+                <Text style={[styles.dealScoreNumber, { color: dealColor }]}>
+                  {listing.deal_score || 0}
+                </Text>
+                <View style={[styles.dealScoreBadge, { backgroundColor: dealColor }]}>
+                  <Text style={styles.dealScoreLabel}>{dealLabel}</Text>
+                </View>
+              </View>
             </View>
           </View>
 
           {/* Title */}
-          {listing.title && <Text style={styles.title}>{listing.title}</Text>}
+          {listing.title ? <Text style={styles.title}>{listing.title}</Text> : null}
 
           {/* Basic Info */}
           <View style={styles.section}>
@@ -167,13 +205,13 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             {listing.property_type && (
               <InfoRow icon="home" label="Property Type" value={listing.property_type} />
             )}
-            {listing.ad_type && <InfoRow icon="pricetag" label="Ad Type" value={listing.ad_type} />}
-            {listing.rooms && <InfoRow icon="bed" label="Rooms" value={formatRooms(listing.rooms)} />}
-            {listing.square_m2 && (
+            {listing.ad_type ? <InfoRow icon="pricetag" label="Ad Type" value={listing.ad_type} /> : null}
+            {listing.rooms != null ? <InfoRow icon="bed" label="Rooms" value={formatRooms(listing.rooms)} /> : null}
+            {listing.square_m2 != null ? (
               <InfoRow icon="resize" label="Size" value={formatSquareMeters(listing.square_m2)} />
-            )}
-            {listing.condition && <InfoRow icon="hammer" label="Condition" value={listing.condition} />}
-            {listing.equipment && <InfoRow icon="construct" label="Equipment" value={listing.equipment} />}
+            ) : null}
+            {listing.condition ? <InfoRow icon="hammer" label="Condition" value={listing.condition} /> : null}
+            {listing.equipment ? <InfoRow icon="construct" label="Equipment" value={listing.equipment} /> : null}
           </View>
 
           {/* Additional Details */}
@@ -182,18 +220,18 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               <Text style={styles.sectionTitle}>Property Details</Text>
               {listing.heating && <InfoRow icon="flame" label="Heating" value={listing.heating} />}
               {listing.level && <InfoRow icon="layers" label="Floor" value={listing.level} />}
-              {listing.bathrooms && (
+              {listing.bathrooms != null ? (
                 <InfoRow icon="water" label="Bathrooms" value={listing.bathrooms.toString()} />
-              )}
+              ) : null}
               {listing.orientation && (
                 <InfoRow icon="compass" label="Orientation" value={listing.orientation} />
               )}
               {listing.floor_type && (
                 <InfoRow icon="square" label="Floor Type" value={listing.floor_type} />
               )}
-              {listing.year_built && (
+              {listing.year_built != null ? (
                 <InfoRow icon="calendar" label="Year Built" value={listing.year_built.toString()} />
-              )}
+              ) : null}
             </View>
           )}
 
@@ -214,11 +252,28 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
           {(listing.latitude && listing.longitude) && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Location</Text>
-              <InfoRow
-                icon="navigate"
-                label="Coordinates"
-                value={`${listing.latitude.toFixed(6)}, ${listing.longitude.toFixed(6)}`}
-              />
+              <View style={styles.mapContainer}>
+                <MapView
+                  style={styles.map}
+                  initialRegion={{
+                    latitude: listing.latitude,
+                    longitude: listing.longitude,
+                    latitudeDelta: 0.005,
+                    longitudeDelta: 0.005
+                  }}
+                  scrollEnabled={true}
+                  zoomEnabled={true}
+                >
+                  <Marker
+                    coordinate={{
+                      latitude: listing.latitude,
+                      longitude: listing.longitude
+                    }}
+                    title={listing.title || 'Property Location'}
+                    description={listing.municipality}
+                  />
+                </MapView>
+              </View>
             </View>
           )}
 
@@ -239,7 +294,9 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               style={styles.openButtonGradient}
             >
               <Ionicons name="open-outline" size={24} color="#fff" />
-              <Text style={styles.openButtonText}>View on {listing.source.toUpperCase()}</Text>
+              <Text style={styles.openButtonText}>
+                View on {listing.source?.toUpperCase() || 'Website'}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -304,8 +361,7 @@ const styles = StyleSheet.create({
   headerBadges: {
     flex: 1,
     alignItems: 'center',
-    height: 414,
-    width: 441
+    justifyContent: 'center'
   },
   content: {
     flex: 1
@@ -342,35 +398,85 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   priceSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    backgroundColor: '#fff',
     padding: 20,
-    backgroundColor: '#fff'
+    gap: 20
+  },
+  priceContainer: {
+    gap: 8
+  },
+  priceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
   },
   price: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: 'bold',
-    color: '#333'
+    color: '#1a1a1a',
+    letterSpacing: -1
+  },
+  priceDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 4
   },
   priceEur: {
     fontSize: 16,
     color: '#666',
-    marginTop: 4
+    fontWeight: '500'
+  },
+  priceSeparator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#ccc'
   },
   pricePerM2: {
+    fontSize: 15,
+    color: '#888',
+    fontWeight: '500'
+  },
+  dealScoreCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e9ecef'
+  },
+  dealScoreHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12
+  },
+  dealScoreTitle: {
     fontSize: 14,
-    color: '#999',
-    marginTop: 4
+    fontWeight: '600',
+    color: '#666',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  dealScoreContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  dealScoreNumber: {
+    fontSize: 42,
+    fontWeight: 'bold',
+    letterSpacing: -1
   },
   dealScoreBadge: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center'
+    paddingVertical: 8,
+    borderRadius: 20
   },
-  dealScoreNumber: {
-    fontSize: 28,
+  dealScoreLabel: {
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#fff'
   },
@@ -448,6 +554,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: '#666'
+  },
+  mapContainer: {
+    width: '100%',
+    height: 300,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#f0f0f0'
+  },
+  map: {
+    width: '100%',
+    height: '100%'
   },
   openButton: {
     marginHorizontal: 20,

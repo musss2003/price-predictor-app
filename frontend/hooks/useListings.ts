@@ -33,6 +33,7 @@ export const useListings = (options: UseListingsOptions = {}) => {
 
   const [filters, setFilters] = useState<ListingFilters>({
     source: 'all',
+    search: '',
     priceMin: '',
     priceMax: '',
     municipality: '',
@@ -91,6 +92,7 @@ export const useListings = (options: UseListingsOptions = {}) => {
         source: filters.source
       }
 
+      if (filters.search) params.search = filters.search
       if (filters.priceMin) params.price_min = Number(filters.priceMin)
       if (filters.priceMax) params.price_max = Number(filters.priceMax)
       if (filters.municipality) params.municipality = filters.municipality
@@ -145,6 +147,7 @@ export const useListings = (options: UseListingsOptions = {}) => {
   const clearFilters = useCallback(() => {
     setFilters({
       source: 'all',
+      search: '',
       priceMin: '',
       priceMax: '',
       municipality: '',
