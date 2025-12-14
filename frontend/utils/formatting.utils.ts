@@ -6,7 +6,7 @@
  * Format price in KM with proper separators
  */
 export const formatPrice = (price: number | null | undefined): string => {
-  if (!price) return 'N/A'
+  if (!price) return 'On request'
   return `${price.toLocaleString()} KM`
 }
 
@@ -14,7 +14,7 @@ export const formatPrice = (price: number | null | undefined): string => {
  * Format price in EUR (conversion rate ~2:1)
  */
 export const formatPriceEur = (price: number | null | undefined): string => {
-  if (!price) return 'N/A'
+  if (!price) return ''
   return `≈ €${Math.round(price / 2).toLocaleString()}`
 }
 

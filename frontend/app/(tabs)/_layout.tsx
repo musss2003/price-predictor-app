@@ -12,35 +12,51 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-          headerShown: true,
+          headerShown: false,
+          tabBarStyle: {
+            height: 65,
+            paddingBottom: 10,
+            paddingTop: 5,
+            borderTopWidth: 1,
+            borderTopColor: '#f0f0f0',
+            elevation: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+          },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: '600',
+          },
         }}
       >
         <Tabs.Screen
           name="index"
           options={{
             title: "Predict",
-            tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+            tabBarIcon: ({ color }) => <TabBarIcon name="calculator" color={color} />,
           }}
         />
         <Tabs.Screen
           name="history"
           options={{
             title: "History",
-            tabBarIcon: ({ color }) => <TabBarIcon name="time" color={color} />,
+            tabBarIcon: ({ color }) => <TabBarIcon name="time-outline" color={color} />,
           }}
         />
         <Tabs.Screen
           name="explore"
           options={{
-            title: "Listings",
-            tabBarIcon: ({ color }) => <TabBarIcon name="list" color={color} />,
+            title: "Explore",
+            tabBarIcon: ({ color }) => <TabBarIcon name="search" color={color} />,
           }}
         />
         <Tabs.Screen
           name="profile"
           options={{
             title: "Profile",
-            tabBarIcon: ({ color }) => <TabBarIcon name="person" color={color} />,
+            tabBarIcon: ({ color }) => <TabBarIcon name="person-outline" color={color} />,
           }}
         />
       </Tabs>

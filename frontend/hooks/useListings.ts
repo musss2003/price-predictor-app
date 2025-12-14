@@ -55,6 +55,7 @@ export const useListings = (options: UseListingsOptions = {}) => {
   // Fetch listings when filters change
   useEffect(() => {
     fetchListings(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters])
 
   const loadFilterOptions = async () => {
@@ -133,10 +134,12 @@ export const useListings = (options: UseListingsOptions = {}) => {
     if (!loadingMore && hasMore) {
       fetchListings(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadingMore, hasMore])
 
   const refresh = useCallback(() => {
     fetchListings(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters])
 
   const clearFilters = useCallback(() => {

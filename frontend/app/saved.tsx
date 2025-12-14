@@ -1,10 +1,19 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Linking, Alert } from 'react-native'
+/**
+ * Saved Listings Screen - Refactored to use reusable components
+ * Shows user's favorite property listings
+ */
+
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import { FlashList } from '@shopify/flash-list'
 import { useAuth } from '@/contexts/AuthContext'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { getFavorites, removeFromFavorites } from '@/services/api'
+import { ListingCard } from '@/components/listings/ListingCard'
+import { Listing } from '@/types/listing.types'
+import * as Haptics from 'expo-haptics'
 
 interface Favorite {
   id: number
@@ -13,19 +22,7 @@ interface Favorite {
   listing_id: number
   notes: string | null
   created_at: string
-  listing: {
-    id: number
-    source: 'olx' | 'nekretnine'
-    title: string
-    price_numeric: number
-    municipality: string
-    property_type: string
-    rooms: number
-    square_m2: number
-    url: string
-    condition: string
-    deal_score: number
-  }
+  listing: any
 }
 
 export default function SavedListingsScreen() {
@@ -56,6 +53,8 @@ export default function SavedListingsScreen() {
   }
 
   const handleRemove = async (source: 'olx' | 'nekretnine', listingId: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    
     Alert.alert(
       'Remove Favorite',
       'Are you sure you want to remove this from your favorites?',
@@ -68,6 +67,7 @@ export default function SavedListingsScreen() {
             try {
               await removeFromFavorites(source, listingId)
               setFavorites(prev => prev.filter(f => !(f.source === source && f.listing_id === listingId)))
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
             } catch {
               Alert.alert('Error', 'Failed to remove favorite')
             }
@@ -77,93 +77,47 @@ export default function SavedListingsScreen() {
     )
   }
 
-  const renderFavorite = useCallback(({ item }: { item: Favorite }) => {
-    const listing = item.listing
-    const dealColor = 
-      listing.deal_score >= 90 ? '#10b981' :
-      listing.deal_score >= 70 ? '#3b82f6' :
-      listing.deal_score >= 50 ? '#f59e0b' : '#ef4444'
-    
-    const sourceColor = item.source === 'olx' ? '#4A90E2' : '#E2574C'
-    const sourceLabel = item.source === 'olx' ? 'OLX' : 'Nekretnine'
+  const renderFavorite = ({ item, index }: { item: Favorite; index: number }) => {
+    // Transform favorite data to Listing type
+    const listing: Listing = {
+      ...item.listing,
+      id: item.listing_id,
+      source: item.source
+    }
 
     return (
-      <View style={styles.card}>
-        <TouchableOpacity
-          onPress={() => listing.url && Linking.openURL(listing.url)}
-          style={styles.cardContent}
-          activeOpacity={0.7}
+      <View style={styles.favoriteContainer}>
+        {item.notes && (
+          <View style={styles.notesContainer}>
+            <Ionicons name="document-text" size={14} color="#667eea" />
+            <Text style={styles.notesText} numberOfLines={2}>{item.notes}</Text>
+          </View>
+        )}
+        
+        <ListingCard 
+          listing={listing} 
+          index={index}
+          showSource
+        />
+        
+        <TouchableOpacity 
+          onPress={() => handleRemove(item.source, item.listing_id)}
+          style={styles.removeButton}
         >
-          <View style={styles.cardTop}>
-            <View style={styles.priceContainer}>
-              <Text style={styles.price}>{listing.price_numeric?.toLocaleString() || 'N/A'} KM</Text>
-              <Text style={styles.priceEur}>≈ €{((listing.price_numeric || 0) / 2).toLocaleString()}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              <View style={[styles.sourceBadge, { backgroundColor: sourceColor }]}>
-                <Text style={styles.sourceText}>{sourceLabel}</Text>
-              </View>
-              <View style={[styles.dealBadge, { backgroundColor: dealColor }]}>
-                <Text style={styles.dealScore}>{listing.deal_score}</Text>
-              </View>
-              <TouchableOpacity 
-                onPress={() => handleRemove(item.source, item.listing_id)}
-                style={styles.heartButton}
-              >
-                <Ionicons name="heart" size={28} color="#ef4444" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <Text style={styles.title} numberOfLines={2}>
-            {listing.title || 'No title'}
-          </Text>
-
-          {item.notes && (
-            <View style={styles.notesContainer}>
-              <Ionicons name="document-text" size={14} color="#667eea" />
-              <Text style={styles.notesText} numberOfLines={2}>{item.notes}</Text>
-            </View>
-          )}
-
-          <View style={styles.details}>
-            <View style={styles.detailRow}>
-              <View style={styles.iconBadge}>
-                <Ionicons name="location" size={16} color="#667eea" />
-              </View>
-              <Text style={styles.detailText}>{listing.municipality}</Text>
-            </View>
-            
-            <View style={styles.detailRow}>
-              <View style={styles.iconBadge}>
-                <Ionicons name="home" size={16} color="#667eea" />
-              </View>
-              <Text style={styles.detailText}>
-                {listing.property_type} • {listing.rooms} rooms • {listing.square_m2} m²
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <View style={styles.iconBadge}>
-                <Ionicons name="hammer" size={16} color="#667eea" />
-              </View>
-              <Text style={styles.detailText}>{listing.condition}</Text>
-            </View>
-          </View>
-
-          <View style={styles.footer}>
-            <View style={styles.openButton}>
-              <Ionicons name="open-outline" size={18} color="#667eea" />
-              <Text style={styles.openText}>View Listing</Text>
-            </View>
-            <Text style={styles.savedDate}>
-              Saved {new Date(item.created_at).toLocaleDateString()}
-            </Text>
-          </View>
+          <Ionicons name="heart" size={24} color="#ef4444" />
+          <Text style={styles.removeText}>Remove</Text>
         </TouchableOpacity>
+        
+        <Text style={styles.savedDate}>
+          Saved {new Date(item.created_at).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          })}
+        </Text>
       </View>
     )
-  }, [])
+  }
 
   return (
     <View style={styles.container}>
@@ -196,7 +150,8 @@ export default function SavedListingsScreen() {
           </View>
           <Text style={styles.emptyTitle}>No Saved Listings</Text>
           <Text style={styles.emptyText}>
-            Browse the Listings tab and tap the heart icon to save properties you like
+            Browse the Explore tab and save properties you like{'\n'}
+            They&apos;ll appear here for easy access
           </Text>
           <TouchableOpacity 
             style={styles.browseButton}
@@ -212,13 +167,13 @@ export default function SavedListingsScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={favorites}
           renderItem={renderFavorite}
           keyExtractor={(item) => `${item.source}-${item.listing_id}`}
           contentContainerStyle={styles.listContent}
-          refreshing={loading}
           onRefresh={loadFavorites}
+          refreshing={loading}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -229,7 +184,7 @@ export default function SavedListingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f5f5f5',
   },
   header: {
     paddingTop: 60,
@@ -315,69 +270,8 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  cardContent: {
-    padding: 20,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  priceContainer: {
-    flex: 1,
-  },
-  price: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#1a1a1a',
-  },
-  priceEur: {
-    fontSize: 15,
-    color: '#666',
-    marginTop: 4,
-  },
-  heartButton: {
-    padding: 8,
-  },
-  sourceBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  sourceText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: '#fff',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  dealBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  dealScore: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    lineHeight: 24,
-    marginBottom: 16,
+  favoriteContainer: {
+    marginBottom: 8,
   },
   notesContainer: {
     flexDirection: 'row',
@@ -386,7 +280,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f4ff',
     padding: 12,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   notesText: {
     flex: 1,
@@ -394,48 +288,29 @@ const styles = StyleSheet.create({
     color: '#667eea',
     fontStyle: 'italic',
   },
-  details: {
-    gap: 12,
-  },
-  detailRow: {
+  removeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  iconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#f0f4ff',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    gap: 8,
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 8,
+    borderWidth: 2,
+    borderColor: '#ef4444',
   },
-  detailText: {
-    fontSize: 15,
-    color: '#666',
-    flex: 1,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  openButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  openText: {
-    fontSize: 15,
+  removeText: {
+    fontSize: 16,
     fontWeight: '600',
-    color: '#667eea',
+    color: '#ef4444',
   },
   savedDate: {
     fontSize: 12,
     color: '#999',
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 8,
   },
 })
