@@ -1,16 +1,18 @@
-import { StyleSheet, ScrollView, RefreshControl, Dimensions, View, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  View,
+  ActivityIndicator,
+  Text,
+} from "react-native";
 import { useState, useEffect, useCallback } from 'react';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { API_URL } from '../../constants/config';
-import { StatCard } from '@/components/statistics/stat-card';
-import { SimpleBarChart } from '@/components/statistics/simple-bar-chart';
-import { PriceCard } from '@/components/statistics/price-card';
-import { Ionicons } from '@expo/vector-icons';
-
-const { width } = Dimensions.get('window');
+import { API_URL } from "../../constants/config";
+import { StatCard } from "@/components/statistics/stat-card";
+import { SimpleBarChart } from "@/components/statistics/simple-bar-chart";
+import { PriceCard } from "@/components/statistics/price-card";
+import { Ionicons } from "@expo/vector-icons";
 
 interface MunicipalityStats {
   municipality: string;
@@ -46,12 +48,11 @@ interface SummaryStats {
 }
 
 export default function StatisticsScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = false; // Force light mode to match rest of app
-
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [municipalityStats, setMunicipalityStats] = useState<MunicipalityStats[]>([]);
+  const [municipalityStats, setMunicipalityStats] = useState<
+    MunicipalityStats[]
+  >([]);
   const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
   const [mapListings, setMapListings] = useState<MapListing[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -62,15 +63,18 @@ export default function StatisticsScreen() {
 
       // Fetch summary statistics
       const summaryRes = await fetch(`${API_URL}/api/v2/statistics/summary`);
-      if (!summaryRes.ok) throw new Error('Failed to fetch summary');
+      if (!summaryRes.ok) throw new Error("Failed to fetch summary");
       const summaryData = await summaryRes.json();
       if (summaryData.success) {
         setSummaryStats(summaryData.data);
       }
 
       // Fetch municipality statistics
-      const municipalityRes = await fetch(`${API_URL}/api/v2/statistics/by-municipality`);
-      if (!municipalityRes.ok) throw new Error('Failed to fetch municipality stats');
+      const municipalityRes = await fetch(
+        `${API_URL}/api/v2/statistics/by-municipality`
+      );
+      if (!municipalityRes.ok)
+        throw new Error("Failed to fetch municipality stats");
       const municipalityData = await municipalityRes.json();
       if (municipalityData.success) {
         setMunicipalityStats(municipalityData.data);
@@ -78,7 +82,9 @@ export default function StatisticsScreen() {
 
       // Fetch map data with error handling
       try {
-        const mapRes = await fetch(`${API_URL}/api/v2/statistics/map-data?limit=500`);
+        const mapRes = await fetch(
+          `${API_URL}/api/v2/statistics/map-data?limit=500`
+        );
         if (mapRes.ok) {
           const mapData = await mapRes.json();
           if (mapData.success && Array.isArray(mapData.data)) {
@@ -86,12 +92,12 @@ export default function StatisticsScreen() {
           }
         }
       } catch (mapError) {
-        console.log('Map data not available:', mapError);
+        console.log("Map data not available:", mapError);
         // Continue without map data
       }
     } catch (error) {
-      console.error('Error fetching statistics:', error);
-      setError('Failed to load statistics. Please try again.');
+      console.error("Error fetching statistics:", error);
+      setError("Failed to load statistics. Please try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -112,61 +118,65 @@ export default function StatisticsScreen() {
   };
 
   const formatNumber = (num: number) => {
-    return num.toLocaleString('bs-BA');
+    return num.toLocaleString("bs-BA");
   };
 
   const getFairnessColor = (fairness: string) => {
     switch (fairness) {
-      case 'excellent':
-        return '#10b981';
-      case 'good':
-        return '#3b82f6';
-      case 'fair':
-        return '#f59e0b';
+      case "excellent":
+        return "#10b981";
+      case "good":
+        return "#3b82f6";
+      case "fair":
+        return "#f59e0b";
       default:
-        return '#ef4444';
+        return "#ef4444";
     }
   };
 
   if (loading) {
     return (
-      <ThemedView style={styles.centerContainer}>
+      <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#3b82f6" />
-        <ThemedText style={styles.loadingText}>Loading statistics...</ThemedText>
-      </ThemedView>
+        <Text style={styles.loadingText}>
+          Loading statistics...
+        </Text>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <ThemedView style={styles.centerContainer}>
+      <View style={styles.centerContainer}>
         <Ionicons name="alert-circle-outline" size={64} color="#ef4444" />
-        <ThemedText style={styles.errorText}>{error}</ThemedText>
-        <ThemedView style={styles.retryButton} onTouchEnd={fetchStatistics}>
-          <ThemedText style={styles.retryText}>Retry</ThemedText>
-        </ThemedView>
-      </ThemedView>
+        <Text style={styles.errorText}>{error}</Text>
+        <View style={styles.retryButton} onTouchEnd={fetchStatistics}>
+          <Text style={styles.retryText}>Retry</Text>
+        </View>
+      </View>
     );
   }
 
   return (
     <ScrollView
       style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
     >
       {/* Header */}
-      <ThemedView style={styles.header}>
-        <ThemedText type="title" style={styles.title}>
+      <View style={styles.header}>
+        <Text style={styles.title}>
           📊 Market Insights
-        </ThemedText>
-        <ThemedText style={styles.subtitle}>
+        </Text>
+        <Text style={styles.subtitle}>
           Real-time data from Sarajevo real estate market
-        </ThemedText>
-      </ThemedView>
+        </Text>
+      </View>
 
       {/* Summary Cards */}
       {summaryStats && (
-        <ThemedView style={styles.summaryContainer}>
+        <View style={styles.summaryContainer}>
           <StatCard
             value={formatNumber(summaryStats.total_listings)}
             label="Total Listings"
@@ -187,39 +197,47 @@ export default function StatisticsScreen() {
             label="Nekretnine"
             color="#f59e0b"
           />
-        </ThemedView>
+        </View>
       )}
 
       {/* Map Section */}
       {mapListings.length > 0 && (
-        <ThemedView style={styles.section}>
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="map-outline" size={24} color="#3b82f6" />
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
+            <Text style={styles.sectionTitle}>
               Listings Map
-            </ThemedText>
+            </Text>
           </View>
-          <ThemedText style={styles.sectionSubtitle}>
+          <Text style={styles.sectionSubtitle}>
             {mapListings.length} properties with color-coded pricing
-          </ThemedText>
+          </Text>
 
           {/* Legend */}
           <View style={styles.legend}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
-              <ThemedText style={styles.legendText}>Excellent Deal</ThemedText>
+              <View
+                style={[styles.legendDot, { backgroundColor: "#10b981" }]}
+              />
+              <Text style={styles.legendText}>Excellent Deal</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#3b82f6' }]} />
-              <ThemedText style={styles.legendText}>Good</ThemedText>
+              <View
+                style={[styles.legendDot, { backgroundColor: "#3b82f6" }]}
+              />
+              <Text style={styles.legendText}>Good</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
-              <ThemedText style={styles.legendText}>Fair</ThemedText>
+              <View
+                style={[styles.legendDot, { backgroundColor: "#f59e0b" }]}
+              />
+              <Text style={styles.legendText}>Fair</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
-              <ThemedText style={styles.legendText}>Overpriced</ThemedText>
+              <View
+                style={[styles.legendDot, { backgroundColor: "#ef4444" }]}
+              />
+              <Text style={styles.legendText}>Overpriced</Text>
             </View>
           </View>
 
@@ -242,35 +260,42 @@ export default function StatisticsScreen() {
                 }}
                 pinColor={listing.marker_color}
                 title={listing.title}
-                description={`${formatPrice(listing.price_numeric)} • ${listing.rooms} rooms • ${listing.square_m2}m²`}
+                description={`${formatPrice(listing.price_numeric)} • ${
+                  listing.rooms
+                } rooms • ${listing.square_m2}m²`}
               >
-                <View style={[styles.customMarker, { backgroundColor: listing.marker_color }]} />
+                <View
+                  style={[
+                    styles.customMarker,
+                    { backgroundColor: listing.marker_color },
+                  ]}
+                />
               </Marker>
             ))}
           </MapView>
-        </ThemedView>
+        </View>
       )}
 
       {/* Municipality Statistics */}
-      <ThemedView style={styles.section}>
+      <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="bar-chart-outline" size={24} color="#10b981" />
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
+          <Text style={styles.sectionTitle}>
             Top Municipalities
-          </ThemedText>
+          </Text>
         </View>
-        <ThemedText style={styles.sectionSubtitle}>
+        <Text style={styles.sectionSubtitle}>
           Ranked by listing count and average prices
-        </ThemedText>
+        </Text>
 
         {/* Bar Chart for Top 5 */}
         {municipalityStats.length > 0 && (
           <SimpleBarChart
             title="Listings by Municipality"
-            data={municipalityStats.slice(0, 5).map(stat => ({
+            data={municipalityStats.slice(0, 5).map((stat) => ({
               label: stat.municipality,
               value: stat.count,
-              color: '#3b82f6',
+              color: "#3b82f6",
             }))}
           />
         )}
@@ -289,10 +314,7 @@ export default function StatisticsScreen() {
             />
           ))}
         </View>
-      </ThemedView>
-
-      {/* Footer spacing */}
-      <ThemedView style={{ height: 100 }} />
+      </View>
     </ScrollView>
   );
 }
@@ -300,87 +322,97 @@ export default function StatisticsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#f5f5f5",
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
     gap: 16,
+    backgroundColor: "#f5f5f5",
   },
   loadingText: {
     fontSize: 16,
     opacity: 0.7,
+    color: '#000000',
   },
   errorText: {
     fontSize: 16,
-    color: '#ef4444',
-    textAlign: 'center',
+    color: "#ef4444",
+    textAlign: "center",
     marginBottom: 8,
   },
   retryButton: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: "#3b82f6",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
     marginTop: 8,
   },
   retryText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   header: {
     padding: 20,
     paddingTop: 60,
     paddingBottom: 16,
+    backgroundColor: "#ffffff",
   },
   title: {
+    color: "#1f2937",
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   subtitle: {
+    color: "#1f2937",
     fontSize: 15,
     opacity: 0.7,
   },
   summaryContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     padding: 16,
     gap: 12,
+    backgroundColor: "#f5f5f5",
   },
   section: {
     padding: 20,
+    backgroundColor: "#ffffff",
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
     marginBottom: 4,
   },
   sectionTitle: {
     fontSize: 22,
     fontWeight: '600',
+    color: '#000000',
   },
   sectionSubtitle: {
     fontSize: 14,
     opacity: 0.7,
     marginBottom: 16,
+    color: '#000000',
   },
   legend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 16,
     marginBottom: 16,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+    backgroundColor: "rgba(59, 130, 246, 0.05)",
     borderRadius: 12,
   },
   legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   legendDot: {
@@ -391,9 +423,10 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 13,
     fontWeight: '500',
+    color: '#000000',
   },
   map: {
-    width: '100%',
+    width: "100%",
     height: 400,
     borderRadius: 16,
   },
@@ -402,8 +435,8 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#ffffff',
-    shadowColor: '#000',
+    borderColor: "#ffffff",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,

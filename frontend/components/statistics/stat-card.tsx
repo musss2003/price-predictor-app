@@ -1,7 +1,4 @@
-import { StyleSheet, View } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { StyleSheet, View, Text } from 'react-native';
 
 interface StatCardProps {
   value: string | number;
@@ -11,24 +8,13 @@ interface StatCardProps {
 }
 
 export function StatCard({ value, label, icon, color }: StatCardProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   return (
-    <ThemedView
-      style={[
-        styles.card,
-        {
-          backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
-          borderColor: isDark ? '#2a2a2a' : '#e5e7eb',
-        },
-      ]}
-    >
-      <ThemedText style={[styles.value, color && { color }]}>
+    <View style={styles.card}>
+      <Text style={[styles.value, color && { color }]}>
         {value}
-      </ThemedText>
-      <ThemedText style={styles.label}>{label}</ThemedText>
-    </ThemedView>
+      </Text>
+      <Text style={styles.label}>{label}</Text>
+    </View>
   );
 }
 
@@ -40,6 +26,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     borderWidth: 1,
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -50,10 +38,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 6,
+    color: '#000000',
   },
   label: {
     fontSize: 13,
     opacity: 0.7,
     fontWeight: '500',
+    color: '#000000',
   },
 });

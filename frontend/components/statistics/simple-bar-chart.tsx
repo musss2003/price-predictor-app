@@ -1,7 +1,4 @@
-import { StyleSheet, View, Dimensions } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { StyleSheet, View, Dimensions, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
@@ -17,15 +14,12 @@ interface BarChartProps {
 }
 
 export function SimpleBarChart({ data, title, maxValue }: BarChartProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  
   const max = maxValue || Math.max(...data.map(d => d.value));
   const chartWidth = width - 80;
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText style={styles.title}>{title}</ThemedText>
+    <View style={styles.container}>
+      <Text style={styles.title}>{title}</Text>
       
       <View style={styles.chart}>
         {data.map((item, index) => {
@@ -34,9 +28,9 @@ export function SimpleBarChart({ data, title, maxValue }: BarChartProps) {
           
           return (
             <View key={index} style={styles.barContainer}>
-              <ThemedText style={styles.barLabel} numberOfLines={1}>
+              <Text style={styles.barLabel} numberOfLines={1}>
                 {item.label}
-              </ThemedText>
+              </Text>
               
               <View style={styles.barWrapper}>
                 <LinearGradient
@@ -45,16 +39,16 @@ export function SimpleBarChart({ data, title, maxValue }: BarChartProps) {
                   end={{ x: 1, y: 0 }}
                   style={[styles.bar, { width: Math.max(barWidth, 20) }]}
                 >
-                  <ThemedText style={styles.barValue}>
+                  <Text style={styles.barValue}>
                     {item.value.toLocaleString()}
-                  </ThemedText>
+                  </Text>
                 </LinearGradient>
               </View>
             </View>
           );
         })}
       </View>
-    </ThemedView>
+    </View>
   );
 }
 
@@ -66,6 +60,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 16,
+    color: '#000000',
   },
   chart: {
     gap: 12,
@@ -77,6 +72,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     opacity: 0.8,
+    color: '#000000',
   },
   barWrapper: {
     height: 36,
