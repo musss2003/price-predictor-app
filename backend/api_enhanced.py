@@ -356,6 +356,115 @@ async def get_price_trends(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/api/v2/statistics/map-data")
+async def get_map_data(
+    municipality: Optional[str] = None,
+    price_min: Optional[int] = None,
+    price_max: Optional[int] = None,
+    limit: int = Query(500, ge=1, le=1000)
+):
+    """
+    Get listings with coordinates for map visualization
+    Includes fairness color coding based on deal_score
+    """
+    try:
+        query = supabase.table("all_listings").select(
+            "id, title, price_numeric, square_m2, rooms, municipality, "
+            "latitude, longitude, deal_score, predicted_price, price_difference, source"
+        )
+        query = query.eq("is_active", True)
+        
+        # Apply filters
+        if municipality:
+            query = query.ilike("municipality", f"%{municipality}%")
+        
+        if price_min is not None:
+            query = query.gte("price_numeric", price_min)
+        
+        if price_max is not None:
+            query = query.lte("price_numeric", price_max)
+        
+        query = query.limit(limit * 2)  # Fetch more to compensate for filtering
+        response = query.execute()
+        
+        # Filter out listings without valid coordinates
+        valid_listings = []
+        for listing in response.data:
+            try:
+                lat = listing.get("latitude")
+                lon = listing.get("longitude")
+                
+                # Skip if coordinates are None, 0, or invalid
+                if lat is None or lon is None:
+                    continue
+                
+                # Convert to float and validate
+                lat = float(lat)
+                lon = float(lon)
+                
+                # Skip if coordinates are 0 or out of reasonable range for Bosnia
+                if lat == 0 or lon == 0:
+                    continue
+                
+                if not (42.0 <= lat <= 46.0 and 15.0 <= lon <= 20.0):
+                    continue
+                
+                # Update with validated coordinates
+                listing["latitude"] = lat
+                listing["longitude"] = lon
+                
+                # Add color coding based on fairness (deal_score)
+                deal_score = listing.get("deal_score")
+                try:
+                    if deal_score is None or deal_score == '':
+                        deal_score = 50
+                    else:
+                        deal_score = float(deal_score)
+                except (ValueError, TypeError):
+                    deal_score = 50
+                
+                # Color coding:
+                # Green (excellent): deal_score >= 85
+                # Blue (good): 70 <= deal_score < 85
+                # Yellow (fair): 50 <= deal_score < 70
+                # Red (overpriced): deal_score < 50
+                
+                if deal_score >= 85:
+                    listing["marker_color"] = "#10b981"  # green
+                    listing["fairness"] = "excellent"
+                elif deal_score >= 70:
+                    listing["marker_color"] = "#3b82f6"  # blue
+                    listing["fairness"] = "good"
+                elif deal_score >= 50:
+                    listing["marker_color"] = "#f59e0b"  # yellow
+                    listing["fairness"] = "fair"
+                else:
+                    listing["marker_color"] = "#ef4444"  # red
+                    listing["fairness"] = "overpriced"
+                
+                valid_listings.append(listing)
+                
+                # Stop if we have enough valid listings
+                if len(valid_listings) >= limit:
+                    break
+                    
+            except (ValueError, TypeError) as e:
+                # Skip listings with invalid data
+                continue
+        
+        return {
+            "success": True,
+            "data": valid_listings,
+            "count": len(valid_listings)
+        }
+    
+    except Exception as e:
+        import traceback
+        error_detail = f"{str(e)}\n{traceback.format_exc()}"
+        print(f"Error in map-data endpoint: {error_detail}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============================================================
 #              SEARCH & DISCOVERY
 # ============================================================

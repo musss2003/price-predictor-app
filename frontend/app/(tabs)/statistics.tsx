@@ -1,0 +1,415 @@
+import { StyleSheet, ScrollView, RefreshControl, Dimensions, View, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { API_URL } from '../../constants/config';
+import { StatCard } from '@/components/statistics/stat-card';
+import { SimpleBarChart } from '@/components/statistics/simple-bar-chart';
+import { PriceCard } from '@/components/statistics/price-card';
+import { Ionicons } from '@expo/vector-icons';
+
+const { width } = Dimensions.get('window');
+
+interface MunicipalityStats {
+  municipality: string;
+  count: number;
+  avg_price: number;
+  avg_size: number;
+  price_per_m2: number;
+}
+
+interface MapListing {
+  id: number;
+  title: string;
+  price_numeric: number;
+  square_m2: number;
+  rooms: number;
+  municipality: string;
+  latitude: number;
+  longitude: number;
+  deal_score: number;
+  marker_color: string;
+  fairness: string;
+}
+
+interface SummaryStats {
+  total_listings: number;
+  olx_listings: number;
+  nekretnine_listings: number;
+  price_stats: {
+    min: number;
+    max: number;
+    avg: number;
+  };
+}
+
+export default function StatisticsScreen() {
+  const colorScheme = useColorScheme();
+  const isDark = false; // Force light mode to match rest of app
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [municipalityStats, setMunicipalityStats] = useState<MunicipalityStats[]>([]);
+  const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
+  const [mapListings, setMapListings] = useState<MapListing[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStatistics = async () => {
+    try {
+      setError(null);
+
+      // Fetch summary statistics
+      const summaryRes = await fetch(`${API_URL}/api/v2/statistics/summary`);
+      if (!summaryRes.ok) throw new Error('Failed to fetch summary');
+      const summaryData = await summaryRes.json();
+      if (summaryData.success) {
+        setSummaryStats(summaryData.data);
+      }
+
+      // Fetch municipality statistics
+      const municipalityRes = await fetch(`${API_URL}/api/v2/statistics/by-municipality`);
+      if (!municipalityRes.ok) throw new Error('Failed to fetch municipality stats');
+      const municipalityData = await municipalityRes.json();
+      if (municipalityData.success) {
+        setMunicipalityStats(municipalityData.data);
+      }
+
+      // Fetch map data with error handling
+      try {
+        const mapRes = await fetch(`${API_URL}/api/v2/statistics/map-data?limit=500`);
+        if (mapRes.ok) {
+          const mapData = await mapRes.json();
+          if (mapData.success && Array.isArray(mapData.data)) {
+            setMapListings(mapData.data);
+          }
+        }
+      } catch (mapError) {
+        console.log('Map data not available:', mapError);
+        // Continue without map data
+      }
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+      setError('Failed to load statistics. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatistics();
+  }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchStatistics();
+  }, []);
+
+  const formatPrice = (price: number) => {
+    return `${(price / 1000).toFixed(0)}k KM`;
+  };
+
+  const formatNumber = (num: number) => {
+    return num.toLocaleString('bs-BA');
+  };
+
+  const getFairnessColor = (fairness: string) => {
+    switch (fairness) {
+      case 'excellent':
+        return '#10b981';
+      case 'good':
+        return '#3b82f6';
+      case 'fair':
+        return '#f59e0b';
+      default:
+        return '#ef4444';
+    }
+  };
+
+  if (loading) {
+    return (
+      <ThemedView style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <ThemedText style={styles.loadingText}>Loading statistics...</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (error) {
+    return (
+      <ThemedView style={styles.centerContainer}>
+        <Ionicons name="alert-circle-outline" size={64} color="#ef4444" />
+        <ThemedText style={styles.errorText}>{error}</ThemedText>
+        <ThemedView style={styles.retryButton} onTouchEnd={fetchStatistics}>
+          <ThemedText style={styles.retryText}>Retry</ThemedText>
+        </ThemedView>
+      </ThemedView>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      {/* Header */}
+      <ThemedView style={styles.header}>
+        <ThemedText type="title" style={styles.title}>
+          📊 Market Insights
+        </ThemedText>
+        <ThemedText style={styles.subtitle}>
+          Real-time data from Sarajevo real estate market
+        </ThemedText>
+      </ThemedView>
+
+      {/* Summary Cards */}
+      {summaryStats && (
+        <ThemedView style={styles.summaryContainer}>
+          <StatCard
+            value={formatNumber(summaryStats.total_listings)}
+            label="Total Listings"
+            color="#3b82f6"
+          />
+          <StatCard
+            value={formatPrice(summaryStats.price_stats.avg)}
+            label="Avg Price"
+            color="#10b981"
+          />
+          <StatCard
+            value={summaryStats.olx_listings}
+            label="OLX Listings"
+            color="#8b5cf6"
+          />
+          <StatCard
+            value={summaryStats.nekretnine_listings}
+            label="Nekretnine"
+            color="#f59e0b"
+          />
+        </ThemedView>
+      )}
+
+      {/* Map Section */}
+      {mapListings.length > 0 && (
+        <ThemedView style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="map-outline" size={24} color="#3b82f6" />
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Listings Map
+            </ThemedText>
+          </View>
+          <ThemedText style={styles.sectionSubtitle}>
+            {mapListings.length} properties with color-coded pricing
+          </ThemedText>
+
+          {/* Legend */}
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+              <ThemedText style={styles.legendText}>Excellent Deal</ThemedText>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#3b82f6' }]} />
+              <ThemedText style={styles.legendText}>Good</ThemedText>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#f59e0b' }]} />
+              <ThemedText style={styles.legendText}>Fair</ThemedText>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
+              <ThemedText style={styles.legendText}>Overpriced</ThemedText>
+            </View>
+          </View>
+
+          <MapView
+            provider={PROVIDER_DEFAULT}
+            style={styles.map}
+            initialRegion={{
+              latitude: 43.8563,
+              longitude: 18.4131,
+              latitudeDelta: 0.15,
+              longitudeDelta: 0.15,
+            }}
+          >
+            {mapListings.map((listing) => (
+              <Marker
+                key={`${listing.id}`}
+                coordinate={{
+                  latitude: listing.latitude,
+                  longitude: listing.longitude,
+                }}
+                pinColor={listing.marker_color}
+                title={listing.title}
+                description={`${formatPrice(listing.price_numeric)} • ${listing.rooms} rooms • ${listing.square_m2}m²`}
+              >
+                <View style={[styles.customMarker, { backgroundColor: listing.marker_color }]} />
+              </Marker>
+            ))}
+          </MapView>
+        </ThemedView>
+      )}
+
+      {/* Municipality Statistics */}
+      <ThemedView style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="bar-chart-outline" size={24} color="#10b981" />
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Top Municipalities
+          </ThemedText>
+        </View>
+        <ThemedText style={styles.sectionSubtitle}>
+          Ranked by listing count and average prices
+        </ThemedText>
+
+        {/* Bar Chart for Top 5 */}
+        {municipalityStats.length > 0 && (
+          <SimpleBarChart
+            title="Listings by Municipality"
+            data={municipalityStats.slice(0, 5).map(stat => ({
+              label: stat.municipality,
+              value: stat.count,
+              color: '#3b82f6',
+            }))}
+          />
+        )}
+
+        {/* Detailed Cards */}
+        <View style={styles.cardsContainer}>
+          {municipalityStats.slice(0, 8).map((stat, index) => (
+            <PriceCard
+              key={stat.municipality}
+              municipality={stat.municipality}
+              avgPrice={stat.avg_price}
+              avgSize={stat.avg_size}
+              pricePerM2={stat.price_per_m2}
+              count={stat.count}
+              rank={index + 1}
+            />
+          ))}
+        </View>
+      </ThemedView>
+
+      {/* Footer spacing */}
+      <ThemedView style={{ height: 100 }} />
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    opacity: 0.7,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ef4444',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  retryButton: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  retryText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  header: {
+    padding: 20,
+    paddingTop: 60,
+    paddingBottom: 16,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    opacity: 0.7,
+  },
+  summaryContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    gap: 12,
+  },
+  section: {
+    padding: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 4,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    opacity: 0.7,
+    marginBottom: 16,
+  },
+  legend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+    borderRadius: 12,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  legendText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  map: {
+    width: '100%',
+    height: 400,
+    borderRadius: 16,
+  },
+  customMarker: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  cardsContainer: {
+    marginTop: 12,
+  },
+});
