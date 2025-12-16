@@ -20,6 +20,14 @@ from datetime import datetime
 from typing import List, Dict, Optional, Set
 from supabase import Client
 
+# Optional: Google Maps for geocoding fallback
+try:
+    import googlemaps
+    GOOGLEMAPS_AVAILABLE = True
+except ImportError:
+    GOOGLEMAPS_AVAILABLE = False
+    logger.warning("googlemaps package not installed. Geocoding fallback disabled.")
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -67,7 +75,7 @@ class NekretnineScraper:
         'Hadžići': 'Hadžići', 'Vogošća': 'Vogošća', 'Ilijaš': 'Ilijaš', 'Trnovo': 'Trnovo'
     }
     
-    def __init__(self, delay: tuple = (2, 5), headless: bool = True, supabase_client: Client = None):
+    def __init__(self, delay: tuple = (2, 5), headless: bool = True, supabase_client: Client = None, google_maps_api_key: str = None):
         """
         Initialize scraper with Selenium
         
@@ -75,12 +83,22 @@ class NekretnineScraper:
             delay: Tuple of (min, max) delay between requests in seconds
             headless: Run browser in headless mode
             supabase_client: Optional Supabase client for duplicate checking and saving
+            google_maps_api_key: Optional Google Maps API key for geocoding fallback
         """
         self.delay = delay
         self.headless = headless
         self.driver = None
         self.supabase = supabase_client
         self.existing_urls: Set[str] = set()
+        
+        # Initialize Google Maps client if API key provided
+        self.gmaps = None
+        if google_maps_api_key and GOOGLEMAPS_AVAILABLE:
+            try:
+                self.gmaps = googlemaps.Client(key=google_maps_api_key)
+                logger.info("Google Maps geocoding enabled")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Google Maps client: {e}")
         
         # Load existing URLs if Supabase client provided
         if self.supabase:
@@ -265,31 +283,46 @@ class NekretnineScraper:
         """
         Extract all image URLs from Slick carousel slider
         
-        Images are in <a> tags with class 'item mfp-gallery slick-slide'
-        and have data-background-image or href attributes with the image URL.
+        The carousel structure:
+        <div class="listing-slider slick-initialized slick-slider">
+          <div class="slick-list draggable">
+            <div class="slick-track">
+              <a href="https://www.nekretnine1.pro/.../image.jpeg" 
+                 data-background-image="https://www.nekretnine1.pro/.../image.jpeg"
+                 class="item mfp-gallery slick-slide">
+              </a>
+            </div>
+          </div>
+        </div>
         
         Returns:
             List of unique image URLs
         """
         try:
             image_urls = []
+            seen_urls = set()
             
             # Find the slick carousel container
-            slick_list = soup.find('div', class_='slick-list')
-            if not slick_list:
-                logger.debug("No slick-list found")
+            slider = soup.find('div', class_='listing-slider')
+            if not slider:
+                logger.debug("No listing-slider found")
                 return []
             
-            # Find all image links in the carousel
-            image_links = slick_list.find_all('a', class_='item')
+            # Find all image links - they have class 'item mfp-gallery'
+            # Note: slick clones slides, so we need to filter duplicates
+            image_links = slider.find_all('a', class_='item')
             
             for link in image_links:
-                # Try data-background-image first
-                img_url = link.get('data-background-image')
+                # Skip cloned slides (they have slick-cloned class)
+                if 'slick-cloned' in link.get('class', []):
+                    continue
                 
-                # Fallback to href attribute
+                # Try href first (primary source)
+                img_url = link.get('href')
+                
+                # Fallback to data-background-image
                 if not img_url:
-                    img_url = link.get('href')
+                    img_url = link.get('data-background-image')
                 
                 # Validate and clean URL
                 if img_url:
@@ -297,11 +330,12 @@ class NekretnineScraper:
                     if not img_url.startswith('http'):
                         img_url = urljoin('https://www.nekretnine1.pro', img_url)
                     
-                    # Only add unique URLs (slick clones duplicates)
-                    if img_url not in image_urls:
+                    # Only add unique URLs
+                    if img_url not in seen_urls:
+                        seen_urls.add(img_url)
                         image_urls.append(img_url)
             
-            logger.info(f"   🖼️  Found {len(image_urls)} images in carousel")
+            logger.info(f"   🖼️  Extracted {len(image_urls)} unique images from carousel")
             return image_urls
             
         except Exception as e:
@@ -380,10 +414,54 @@ class NekretnineScraper:
             logger.warning(f"Failed to extract Leaflet coordinates: {e}")
             return None, None
     
+    def geocode_address(self, address: str, municipality: str = "Sarajevo") -> tuple:
+        """
+        Geocode an address using Google Maps API
+        
+        Args:
+            address: Full address to geocode
+            municipality: Municipality/city (defaults to Sarajevo)
+            
+        Returns:
+            Tuple of (latitude, longitude) or (None, None)
+        """
+        if not self.gmaps:
+            return None, None
+        
+        try:
+            # Build full address with region context
+            full_address = f"{address}, {municipality}, Bosnia and Herzegovina"
+            
+            logger.debug(f"Geocoding address: {full_address}")
+            
+            # Geocode the address
+            geocode_result = self.gmaps.geocode(full_address)
+            
+            if geocode_result and len(geocode_result) > 0:
+                location = geocode_result[0]['geometry']['location']
+                lat = location['lat']
+                lng = location['lng']
+                
+                # Validate coordinates are in Bosnia region (roughly)
+                # Bosnia latitude: ~42.5 to ~45.3, longitude: ~15.7 to ~19.6
+                if 42.0 <= lat <= 46.0 and 15.0 <= lng <= 20.0:
+                    logger.info(f"   🗺️  Coordinates from Google Maps: {lat:.6f}, {lng:.6f}")
+                    return lat, lng
+                else:
+                    logger.warning(f"Geocoded coordinates outside Bosnia region: {lat}, {lng}")
+                    return None, None
+            else:
+                logger.debug(f"No geocoding results for: {full_address}")
+                return None, None
+                
+        except Exception as e:
+            logger.warning(f"Geocoding failed for '{address}': {e}")
+            return None, None
+    
     def parse_detail_page(self, url: str) -> Optional[Dict]:
         """
         Parse listing detail page
-        Based on your notebook's parse_detail_page function
+        Based on the actual HTML structure from nekretnine.ba
         """
         html = self.fetch_page_source(url)
         if not html:
@@ -392,60 +470,160 @@ class NekretnineScraper:
         try:
             soup = BeautifulSoup(html, "lxml")
             
-            # Extract title (remove tag span)
+            # Extract title from titlebar (format: "Sarajevo <span>Prodaja</span>")
+            # The actual title is in the h2, and location is the first text node
             title_elem = soup.select_one("div.listing-titlebar-title h2")
+            title = None
             if title_elem:
+                # Remove the tag span to get clean title
                 tag_span = title_elem.find("span", class_="listing-tag")
                 if tag_span:
                     tag_span.decompose()
                 title = self.clean_text(title_elem.get_text())
-            else:
-                title = None
             
-            # Extract municipality (address/location)
-            municipality_elem = soup.select_one("a.listing-address")
-            municipality_raw = self.clean_text(municipality_elem.get_text()) if municipality_elem else None
+            # Extract full location/address from listing-address link
+            # Format: "Trosoban renoviran stan Marijin Dvor, 101(110) m2, #13731"
+            address_elem = soup.select_one("a.listing-address")
+            address_full = self.clean_text(address_elem.get_text()) if address_elem else None
+            municipality_raw = title  # Use the main title (e.g., "Sarajevo") as municipality
             
-            # Extract price
+            # Extract price from sidebar red box (CIJENA section)
+            # The price is in a span.re-slidep with font-weight:700
             price_elem = soup.select_one("span.re-slidep")
-            price_numeric = self.extract_price(price_elem.get_text()) if price_elem else None
+            price_numeric = None
+            if price_elem:
+                price_text = price_elem.get_text()
+                # Handle "KM 725.200" or "Na upit"
+                if "KM" in price_text:
+                    price_numeric = self.extract_price(price_text)
+                elif "upit" in price_text.lower():
+                    price_numeric = None  # Price on request
             
-            # Extract property type
+            # Extract property type from TIP section
+            # Structure: <b>TIP</b> followed by <div> with content like "Stambeni prostor"
             property_type_elem = soup.find("b", string="TIP")
-            property_type = self.clean_text(property_type_elem.find_next("div").get_text()) if property_type_elem else None
+            property_type = None
+            if property_type_elem:
+                type_div = property_type_elem.find_next("div")
+                if type_div:
+                    property_type = self.clean_text(type_div.get_text())
             
-            # Extract ad type
+            # Extract ad type from SUBJEKT section
+            # Content like "Prodaja" or "Iznajmljivanje"
             ad_type_elem = soup.find("b", string="SUBJEKT")
-            ad_type = self.clean_text(ad_type_elem.find_next("div").get_text()) if ad_type_elem else None
+            ad_type = None
+            if ad_type_elem:
+                subjekt_div = ad_type_elem.find_next("div")
+                if subjekt_div:
+                    ad_type = self.clean_text(subjekt_div.get_text())
             
-            # Extract rooms
+            # Extract rooms from BROJ SOBA section
+            # Content like "Dvosoban", "Trosoban", "2.5", etc.
             rooms_elem = soup.find("b", string="BROJ SOBA")
-            rooms_text = self.clean_text(rooms_elem.find_next("div").get_text()) if rooms_elem else None
-            rooms = self.extract_number(rooms_text) if rooms_text else None
+            rooms = None
+            if rooms_elem:
+                rooms_div = rooms_elem.find_next("div")
+                if rooms_div:
+                    rooms_text = self.clean_text(rooms_div.get_text())
+                    # Map text to numbers
+                    room_mapping = {
+                        'garsonjera': 0.5, 'jednosoban': 1, 'jednoiposoban': 1.5,
+                        'dvosoban': 2, 'dvoiposoban': 2.5, 'trosoban': 3,
+                        'troiposoban': 3.5, 'četvorosoban': 4, 'peterosoban': 5
+                    }
+                    rooms_lower = rooms_text.lower() if rooms_text else ''
+                    for key, val in room_mapping.items():
+                        if key in rooms_lower:
+                            rooms = val
+                            break
+                    if rooms is None:
+                        # Try to extract number directly
+                        rooms = self.extract_number(rooms_text)
             
-            # Extract square meters
+            # Extract square meters from POVRŠINA section
+            # Format: "101 m2" or "101(110) m2"
             square_m2_elem = soup.find("b", string="POVRŠINA")
             square_m2 = None
             if square_m2_elem:
-                area_text = square_m2_elem.find_next("div").get_text(strip=True)
-                area_match = re.search(r'([\d,\.]+)', area_text)
-                if area_match:
-                    area_str = area_match.group(1).replace(',', '.')
-                    try:
-                        square_m2 = float(area_str)
-                    except:
-                        pass
+                area_div = square_m2_elem.find_next("div")
+                if area_div:
+                    area_text = area_div.get_text(strip=True)
+                    # Extract first number (may have format like "101(110)")
+                    area_match = re.search(r'(\d+)', area_text)
+                    if area_match:
+                        try:
+                            square_m2 = float(area_match.group(1))
+                        except:
+                            pass
             
-            # Extract description
-            description_head = soup.find("h3", string=re.compile("Opis nekretnine"))
-            description = self.clean_text(description_head.find_next("p").get_text(" ")) if description_head else None
+            # Extract description from "Opis nekretnine" section
+            # The <h3> has "Opis nekretnine" and next <p> has the description
+            description_head = soup.find("h3", class_="listing-desc-headline", string=re.compile("Opis nekretnine"))
+            description = None
+            if description_head:
+                desc_p = description_head.find_next("p")
+                if desc_p:
+                    description = self.clean_text(desc_p.get_text(" "))
             
-            # Extract equipment/amenities
-            equipment_list = [self.clean_text(li.get_text()) for li in soup.select("ul.listing-features li")]
-            equipment = ", ".join([e for e in equipment_list if e])
+            # Extract amenities from "Nekretnina posjeduje" section
+            # Format: <ul class="listing-features checkboxes">
+            #   <li><i class="fa fa-check"></i>Plin</li>
+            #   <li><i class="fa fa-check"></i>Kanalizacija</li>
+            # </ul>
+            amenities_head = soup.find("h3", string=re.compile("Nekretnina posjeduje"))
+            equipment_list = []
+            if amenities_head:
+                amenities_ul = amenities_head.find_next("ul", class_="listing-features")
+                if amenities_ul:
+                    for li in amenities_ul.find_all("li"):
+                        # Remove the icon and extract text
+                        icon = li.find("i")
+                        if icon:
+                            icon.decompose()
+                        amenity_text = self.clean_text(li.get_text())
+                        if amenity_text:
+                            equipment_list.append(amenity_text)
+            equipment = ", ".join(equipment_list) if equipment_list else None
+            
+            # Extract agency/seller information from sidebar
+            # Structure: <div class="boxed-widget">
+            #   <div class="hosted-by-title"><h4><span>Postavili</span> <a>MY SPACE Nekretnine</a></h4>
+            agency_name = None
+            agency_phone = None
+            agency_email = None
+            
+            hosted_by = soup.find("div", class_="hosted-by-title")
+            if hosted_by:
+                agency_link = hosted_by.find("a")
+                if agency_link:
+                    agency_name = self.clean_text(agency_link.get_text())
+            
+            # Extract contact details from sidebar list
+            sidebar_details = soup.select("ul.listing-details-sidebar li")
+            for li in sidebar_details:
+                text = li.get_text(strip=True)
+                # Phone numbers
+                if li.find("i", class_="fa-mobile") or li.find("i", class_="sl-icon-globe"):
+                    # Remove icon and get text
+                    icon = li.find("i")
+                    if icon:
+                        icon.decompose()
+                    phone_text = li.get_text(strip=True)
+                    if phone_text and len(phone_text) > 5:
+                        agency_phone = phone_text
+                # Email
+                elif li.find("i", class_="fa-envelope-o"):
+                    email_link = li.find("a", href=re.compile(r'mailto:'))
+                    if email_link:
+                        agency_email = self.clean_text(email_link.get_text())
             
             # Extract coordinates from Leaflet map
             latitude, longitude = self.extract_coordinates_from_leaflet(soup)
+            
+            # Fallback: Use Google Maps geocoding if coordinates not found and address available
+            if (latitude is None or latitude == 0.0) and address_full and self.gmaps:
+                logger.debug("Leaflet coordinates not found, trying Google Maps geocoding...")
+                latitude, longitude = self.geocode_address(address_full, municipality or "Sarajevo")
             
             # Extract all images from carousel
             images = self.extract_images_from_carousel(soup)
@@ -467,6 +645,7 @@ class NekretnineScraper:
                 "url": url,
                 "price_numeric": price_numeric,
                 "municipality": municipality,
+                "address": address_full,  # Full address from listing-address
                 "property_type": property_type,
                 "ad_type": ad_type,
                 "rooms": rooms,
@@ -477,10 +656,17 @@ class NekretnineScraper:
                 "description": description,
                 "thumbnail_url": thumbnail_url,
                 "image_urls": images,
-                "last_updated": datetime.now().isoformat()
+                "agency_name": agency_name,
+                "agency_phone": agency_phone,
+                "agency_email": agency_email,
+                "last_updated": datetime.now().isoformat(),
+                "scraped_at": datetime.now().isoformat(),
+                "is_active": True
             }
             
-            logger.info(f"Parsed: {title[:50]}... - {price_numeric} KM")
+            # Log with more details
+            price_str = f"{price_numeric} KM" if price_numeric else "Na upit"
+            logger.info(f"✓ Parsed: {title[:40]}... | {price_str} | {square_m2}m² | {rooms} soba")
             return details
             
         except Exception as e:

@@ -90,6 +90,13 @@ export const ListingCard: React.FC<ListingCardProps> = ({
           </View>
         )}
 
+        {/* Source Badge - Top Right Corner (Over Image) */}
+        {showSource && listing.source ? (
+          <View style={styles.sourceBadgeOverlay}>
+            <SourceBadge source={listing.source} size="small" />
+          </View>
+        ) : null}
+
         {/* Favorite Button */}
         {onToggleFavorite && (
           <TouchableOpacity
@@ -100,152 +107,122 @@ export const ListingCard: React.FC<ListingCardProps> = ({
             <View style={styles.favoriteButtonBg}>
               <Ionicons
                 name={isFavorite ? "heart" : "heart-outline"}
-                size={24}
+                size={20}
                 color={isFavorite ? "#ef4444" : "#fff"}
               />
             </View>
           </TouchableOpacity>
         )}
 
-        {/* Modern Card Content */}
-        <View style={styles.cardContent}>
-          {/* Source Badge - Top */}
-          {!compact && showSource && listing.source ? (
-            <View style={styles.sourceRow}>
-              <SourceBadge source={listing.source} size="medium" />
-            </View>
-          ) : null}
-
-          {/* Price - Primary */}
-          <View style={styles.priceRow}>
-            <View style={styles.priceContainer}>
-              <Text style={[styles.price, compact && styles.priceCompact]}>
-                {formatPrice(listing.price_numeric)}
+        {/* Compact Card Header - Price & Deal Score */}
+        <View style={styles.cardHeader}>
+          <View style={styles.priceContainer}>
+            <Text style={[styles.price, compact && styles.priceCompact]}>
+              {formatPrice(listing.price_numeric)}
+            </Text>
+            {!compact && listing.price_numeric ? (
+              <Text style={styles.priceEur}>
+                {formatPriceEur(listing.price_numeric)}
               </Text>
-              {!compact && listing.price_numeric && (
-                <Text style={styles.priceEur}>
-                  {formatPriceEur(listing.price_numeric)}
-                </Text>
-              )}
-            </View>
-            {compact && (
-              <View style={styles.dealIndicatorCompact}>
-                <Ionicons
-                  name={
-                    (listing.deal_score || 0) >= 8
-                      ? "star"
-                      : (listing.deal_score || 0) >= 6
-                      ? "star-half"
-                      : "star-outline"
-                  }
-                  size={16}
-                  color={dealColor}
-                />
-              </View>
-            )}
+            ) : null}
           </View>
-
-          {/* Deal Score - Secondary */}
-          {!compact && (
-            <View style={styles.dealRow}>
-              <View style={[styles.dealBadge, { backgroundColor: dealColor + '15' }]}>
-                <Ionicons
-                  name={
-                    (listing.deal_score || 0) >= 8
-                      ? "star"
-                      : (listing.deal_score || 0) >= 6
-                      ? "star-half"
-                      : "star-outline"
-                  }
-                  size={16}
-                  color={dealColor}
-                />
-                <Text style={[styles.dealScoreText, { color: dealColor }]}>
-                  {listing.deal_score || 0}
-                </Text>
-                <Text style={[styles.dealLabel, { color: dealColor }]}>
-                  {dealLabel}
-                </Text>
-              </View>
-            </View>
-          )}
+          
+          {/* Deal Score Badge */}
+          <View style={[styles.dealBadge, { backgroundColor: dealColor + '20' }]}>
+            <Ionicons
+              name={
+                (listing.deal_score || 0) >= 8
+                  ? "star"
+                  : (listing.deal_score || 0) >= 6
+                  ? "star-half"
+                  : "star-outline"
+              }
+              size={14}
+              color={dealColor}
+            />
+            <Text style={[styles.dealScoreText, { color: dealColor }]}>
+              {listing.deal_score || 0}
+            </Text>
+          </View>
         </View>
 
         {/* Title */}
-        <Text style={[styles.title, compact && styles.titleCompact]} numberOfLines={compact ? 1 : 2}>
+        <Text style={[styles.title, compact && styles.titleCompact]} numberOfLines={2}>
           {listing.title || "No title available"}
         </Text>
 
+        {/* Key Details Grid */}
+        <View style={styles.keyDetailsGrid}>
+          {listing.rooms ? (
+            <View style={styles.keyDetailItem}>
+              <Ionicons name="bed" size={18} color="#667eea" />
+              <Text style={styles.keyDetailText}>{formatRooms(listing.rooms)}</Text>
+            </View>
+          ) : null}
+          
+          {listing.square_m2 ? (
+            <View style={styles.keyDetailItem}>
+              <Ionicons name="resize" size={18} color="#667eea" />
+              <Text style={styles.keyDetailText}>{formatSquareMeters(listing.square_m2)}</Text>
+            </View>
+          ) : null}
+          
+          {listing.level != null ? (
+            <View style={styles.keyDetailItem}>
+              <Ionicons name="layers" size={18} color="#667eea" />
+              <Text style={styles.keyDetailText}>Floor {listing.level}</Text>
+            </View>
+          ) : null}
+          
+          {listing.square_m2 && listing.price_numeric ? (
+            <View style={styles.keyDetailItem}>
+              <Ionicons name="calculator" size={18} color="#667eea" />
+              <Text style={styles.keyDetailText}>
+                {Math.round(listing.price_numeric / listing.square_m2)} KM/m²
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
         {/* Details */}
         <View style={styles.details}>
-          {listing.municipality && (
+          {listing.municipality ? (
             <DetailRow icon="location" text={listing.municipality} />
-          )}
-          <DetailRow
-            icon="home"
-            text={[
-              listing.property_type,
-              listing.rooms ? formatRooms(listing.rooms) : null,
-              listing.square_m2 ? formatSquareMeters(listing.square_m2) : null,
-            ]
-              .filter(Boolean)
-              .join(" • ")}
-          />
-          {!compact && (listing.condition || listing.equipment) && (
-            <DetailRow
-              icon="hammer"
-              text={[listing.condition, listing.equipment]
-                .filter(Boolean)
-                .join(" • ")}
-            />
-          )}
-          {!compact && (listing.heating || listing.level) && (
-            <DetailRow
-              icon="flame"
-              text={[
-                listing.heating,
-                listing.level ? `Floor ${listing.level}` : null,
-              ]
-                .filter(Boolean)
-                .join(" • ")}
-            />
-          )}
-          {/* Additional database fields */}
-          {!compact && (listing.bathrooms || listing.orientation || listing.year_built) && (
+          ) : null}
+          
+          {listing.property_type ? (
+            <DetailRow icon="home" text={listing.property_type} />
+          ) : null}
+          
+          {!compact && (listing.condition || listing.heating) ? (
             <DetailRow
               icon="information-circle"
-              text={[
-                listing.bathrooms ? `${listing.bathrooms} bath` : null,
-                listing.orientation || null,
-                listing.year_built ? `Built ${listing.year_built}` : null,
-              ]
+              text={[listing.condition, listing.heating]
                 .filter(Boolean)
                 .join(" • ")}
             />
-          )}
-          {!compact && listing.floor_type && (
-            <DetailRow icon="grid" text={`Floor: ${listing.floor_type}`} />
-          )}
-          {/* Amenities */}
+          ) : null}
+          
+          {/* Amenities Row - Only show if any exist */}
           {!compact && (listing.has_elevator ||
             listing.has_balcony ||
             listing.has_parking ||
-            listing.has_garage) && (
+            listing.has_garage) ? (
             <View style={styles.amenitiesRow}>
-              {listing.has_elevator && (
-                <AmenityBadge icon="arrow-up" label="Elevator" />
-              )}
-              {listing.has_balcony && (
+              {listing.has_elevator ? (
+                <AmenityBadge icon="arrow-up" label="Lift" />
+              ) : null}
+              {listing.has_balcony ? (
                 <AmenityBadge icon="partly-sunny" label="Balcony" />
-              )}
-              {listing.has_parking && (
+              ) : null}
+              {listing.has_parking ? (
                 <AmenityBadge icon="car" label="Parking" />
-              )}
-              {listing.has_garage && (
+              ) : null}
+              {listing.has_garage ? (
                 <AmenityBadge icon="home" label="Garage" />
-              )}
+              ) : null}
             </View>
-          )}
+          ) : null}
         </View>
       </TouchableOpacity>
     </MotiView>
@@ -279,14 +256,14 @@ const AmenityBadge: React.FC<AmenityBadgeProps> = ({ icon, label }) => (
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: "hidden",
     marginBottom: 16,
-    elevation: 4,
-    shadowColor: "#667eea",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   thumbnail: {
     width: "100%",
@@ -297,6 +274,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  sourceBadgeOverlay: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    zIndex: 10,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderRadius: 8,
+    padding: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   favoriteButton: {
     position: "absolute",
     top: 12,
@@ -304,73 +295,83 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   favoriteButtonBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
   },
-  cardContent: {
-    padding: 16,
-    gap: 12,
-  },
-  sourceRow: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-  },
-  priceRow: {
+  cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
   },
   priceContainer: {
     flex: 1,
   },
   price: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#1a1a1a",
     letterSpacing: -0.5,
   },
   priceEur: {
-    fontSize: 15,
+    fontSize: 13,
     color: "#666",
-    marginTop: 4,
+    marginTop: 2,
     fontWeight: "500",
-  },
-  dealRow: {
-    flexDirection: "row",
-    alignItems: "center",
   },
   dealBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 5,
   },
   dealScoreText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "bold",
   },
-  dealLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
   title: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: "#333",
     marginBottom: 12,
     marginHorizontal: 16,
-    lineHeight: 22,
+    lineHeight: 20,
+  },
+  keyDetailsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: 16,
+    marginBottom: 12,
+    gap: 10,
+  },
+  keyDetailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8f9ff",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#e8ebff",
+  },
+  keyDetailText: {
+    fontSize: 13,
+    color: "#333",
+    fontWeight: "600",
   },
   details: {
-    gap: 8,
+    gap: 6,
     marginHorizontal: 16,
-    marginBottom: 16
+    marginBottom: 14,
   },
   detailRow: {
     flexDirection: "row",
@@ -378,20 +379,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   detailText: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#666",
     flex: 1,
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 12,
-    marginHorizontal: 18,
-    marginBottom: 18,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
   },
   amenitiesRow: {
     flexDirection: "row",
@@ -422,24 +412,9 @@ const styles = StyleSheet.create({
   thumbnailCompact: {
     height: 120,
   },
-  cardHeaderCompact: {
-    marginTop: 12,
-    marginHorizontal: 12,
-    marginBottom: 8,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
   priceCompact: {
     fontSize: 18,
     fontWeight: "bold",
-  },
-  dealIndicatorCompact: {
-    backgroundColor: "#fff",
-    padding: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
   },
   titleCompact: {
     fontSize: 13,

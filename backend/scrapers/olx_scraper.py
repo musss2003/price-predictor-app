@@ -70,20 +70,37 @@ class OLXScraper:
         )
     
     def _init_driver(self):
-        """Initialize Selenium WebDriver"""
+        """Initialize Selenium WebDriver with improved bot detection avoidance"""
         if self.driver:
             return
         
         logger.info("Initializing Firefox WebDriver...")
         options = Options()
         options.binary_location = self.firefox_binary
-        options.add_argument("--headless")  # Run without GUI
+        
+        # Enable headless mode for overnight scraping
+        options.add_argument("--headless")
+        
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--window-size=1920,1080")
+        
+        # More realistic user agent
+        options.set_preference("general.useragent.override", 
+            "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0")
+        
+        # Enable JavaScript and images
+        options.set_preference("javascript.enabled", True)
+        options.set_preference("permissions.default.image", 2)  # Disable images for speed
         
         service = Service(executable_path=self.geckodriver_path)
         self.driver = webdriver.Firefox(service=service, options=options)
         self.driver.set_page_load_timeout(120)
+        
+        # Hide webdriver property
+        self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        
         logger.info("✅ WebDriver initialized")
     
     def _close_driver(self):
@@ -210,17 +227,51 @@ class OLXScraper:
         return details
     
     def fetch_page_source(self, url: str) -> Optional[str]:
-        """Load page and return HTML source"""
+        """Load page and return HTML source with timeout protection"""
         try:
+            # Set a page load timeout
+            self.driver.set_page_load_timeout(30)
             self.driver.get(url)
-            time.sleep(3)  # Wait for dynamic content
+            
+            # Wait for Vue.js app to initialize and render content
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            from selenium.webdriver.common.by import By
+            
+            try:
+                # Wait for Vue app to mount - look for specific content that appears after JS loads
+                WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "h1[class*='heading'], .price-heading"))
+                )
+                logger.debug("Main content loaded")
+                
+                # Additional wait for description to load (it may load after the title)
+                time.sleep(2)
+                
+                # Try to wait for description specifically (but don't fail if not found)
+                try:
+                    WebDriverWait(self.driver, 3).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, ".ad-description, [class*='description']"))
+                    )
+                    logger.debug("Description loaded")
+                except TimeoutException:
+                    logger.debug("Description element not found within timeout")
+                    
+            except TimeoutException:
+                logger.warning("Timeout waiting for main content to load - continuing anyway")
+            
             return self.driver.page_source
-        except (TimeoutException, WebDriverException, OSError) as e:
-            logger.warning(f"Failed to load page: {url} → {e}")
+            
+        except TimeoutException:
+            logger.warning(f"Page load timeout for {url} - skipping")
+            return None
+        except (WebDriverException, OSError) as e:
+            logger.warning(f"Failed to load page: {url} → {str(e)[:80]}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error loading page: {url} → {e}")
             return None
+        
     
     def parse_detail_page(self, url: str) -> Optional[Dict]:
         """
@@ -300,6 +351,56 @@ class OLXScraper:
             heating = get_text("div.required-wrap:nth-child(9) > div:nth-child(2) > h4:nth-child(2)")
             logger.info(f"   🔥 Heating: {heating}")
             
+            # Extract description
+            description = None
+            
+            # Method 1: Try .ad-description directly
+            description_container = soup.select_one(".ad-description-container")
+            if description_container:
+                # Get all text from description, preserving structure
+                description_parts = []
+                for element in description_container.find_all(['p']):
+                    text = self.clean_text(element.get_text())
+                    if text and len(text) > 1:  # Skip empty or single char
+                        description_parts.append(text)
+                
+                if description_parts:
+                    description = " ".join(description_parts)
+            
+            # Method 2: Try .ad-description-container
+            if not description:
+                desc_container = soup.select_one("div[class*='ad-description-container']")
+                if desc_container:
+                    # Remove button elements
+                    for button in desc_container.find_all('button'):
+                        button.decompose()
+                    description = self.clean_text(desc_container.get_text())
+            
+            # Method 3: Try data-v-66c319e2 attribute (Vue.js component)
+            if not description:
+                vue_desc = soup.find('div', attrs={'data-v-66c319e2': True})
+                if vue_desc:
+                    desc_div = vue_desc.find('div', class_='ad-description')
+                    if desc_div:
+                        description_parts = []
+                        for p in desc_div.find_all('p'):
+                            text = self.clean_text(p.get_text())
+                            if text and len(text) > 1:
+                                description_parts.append(text)
+                        if description_parts:
+                            description = " ".join(description_parts)
+            
+            if description:
+                logger.info(f"   📄 Description: {description[:100]}... ({len(description)} chars)")
+            else:
+                logger.info(f"   📄 Description: Not found")
+                # Debug: Show what we did find
+                all_divs = soup.find_all('div', class_=re.compile('description'))
+                if all_divs:
+                    logger.debug(f"   Found {len(all_divs)} divs with 'description' in class name")
+                    for div in all_divs[:3]:
+                        logger.debug(f"     - {div.get('class')}: {str(div)[:100]}...")
+            
             # Extract external ID from URL
             url_match = re.search(r'/artikal/(\d+)', url)
             external_id = f"olx_{url_match.group(1)}" if url_match else f"olx_{hash(url) % 10000000}"
@@ -328,12 +429,12 @@ class OLXScraper:
                 logger.info(f"      First: {image_urls[0][:60]}...")
                 logger.info(f"      Total URLs: {image_urls}")
             
-            # Build listing dictionary
+            # Build listing dictionary with database column mapping
             details = {
                 "external_id": external_id,
-                "source": "olx_ba",
-                "title": title,
                 "url": url,
+                "title": title,
+                "description": description,
                 "price_numeric": price_numeric,
                 "municipality": municipality,
                 "condition": condition,
@@ -345,7 +446,7 @@ class OLXScraper:
                 "level": level,
                 "heating": heating,
                 "thumbnail_url": thumbnail_url,
-                "image_urls": image_urls,  # All images from carousel
+                "image_urls": image_urls,
                 "latitude": latitude,
                 "longitude": longitude,
                 "posted_date": datetime.now().isoformat(),
@@ -354,19 +455,61 @@ class OLXScraper:
                 "is_active": True,
             }
             
-            # Merge flexible details (additional fields from tbody)
-            # Log interesting fields found
-            interesting_fields = ["adresa", "broj_kupatila", "primarna_orjentacija", "vrsta_poda", 
-                                 "godina_izgradnje", "datum_objave", "garaža", "internet", 
-                                 "kablovska_tv", "lift", "podrum_tavan", "balkon"]
-            for field in interesting_fields:
-                if field in flexible_details:
-                    value = flexible_details[field]
-                    logger.info(f"   🔍 {field}: {value}")
+            # Helper function to parse OLX date format (DD.MM.YYYY)
+            def parse_olx_date(date_str: str) -> Optional[str]:
+                """Convert DD.MM.YYYY to ISO format YYYY-MM-DD"""
+                try:
+                    parts = date_str.split('.')
+                    if len(parts) == 3:
+                        day, month, year = parts
+                        # Create datetime and return ISO format date only
+                        dt = datetime(int(year), int(month), int(day))
+                        return dt.date().isoformat()
+                except:
+                    pass
+                return None
             
-            # Add all flexible details with 'extra_' prefix to avoid conflicts
+            # Map flexible_details to database columns
+            field_mapping = {
+                "adresa": "address",
+                "broj_kupatila": "bathrooms",
+                "primarna_orjentacija": "orientation",
+                "vrsta_poda": "floor_type",
+                "godina_izgradnje": "year_built",
+                "garaža": "has_garage",
+                "internet": "has_internet",
+                "kablovska_tv": "has_cable_tv",
+                "lift": "has_elevator",
+                "balkon": "has_balcony",
+                "podrum_tavan": "has_basement",
+                "parking": "has_parking",
+            }
+            
+            # Log and map fields
+            for olx_field, db_column in field_mapping.items():
+                if olx_field in flexible_details:
+                    value = flexible_details[olx_field]
+                    details[db_column] = value
+                    logger.info(f"   🔍 {olx_field} → {db_column}: {value}")
+            
+            # Handle publication_date separately (needs date parsing)
+            if "datum_objave" in flexible_details:
+                date_str = flexible_details["datum_objave"]
+                parsed_date = parse_olx_date(date_str)
+                if parsed_date:
+                    details["publication_date"] = parsed_date
+                    logger.info(f"   🔍 datum_objave → publication_date: {date_str} → {parsed_date}")
+                else:
+                    logger.warning(f"   ⚠️  Could not parse date: {date_str}")
+            
+            # Store remaining unmapped fields in extra_fields JSON column
+            extra_fields = {}
             for key, value in flexible_details.items():
-                details[f"extra_{key}"] = value
+                if key not in field_mapping:
+                    extra_fields[key] = value
+            
+            if extra_fields:
+                details["extra_fields"] = extra_fields
             
             logger.info(f"   ✅ Successfully parsed listing with {len(flexible_details)} extra fields")
             return details
@@ -448,8 +591,12 @@ class OLXScraper:
                             logger.info(f"⏳ Waiting {delay_time:.1f}s...")
                             time.sleep(delay_time)
                             
+                        except KeyboardInterrupt:
+                            logger.info("\n⚠️  Scraping interrupted by user")
+                            raise
                         except Exception as e:
-                            logger.error(f"❌ Error on listing {link}: {e}")
+                            logger.error(f"❌ Error on listing {link}: {str(e)[:100]}")
+                            # Continue to next listing instead of crashing
                             continue
                     
                 except Exception as e:

@@ -152,17 +152,17 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 {listing.price_numeric ? formatPrice(listing.price_numeric) : 'Price on request'}
               </Text>
               <View style={styles.priceDetailsRow}>
-                {listing.price_numeric && (
+                {listing.price_numeric ? (
                   <Text style={styles.priceEur}>{formatPriceEur(listing.price_numeric)}</Text>
-                )}
-                {listing.square_m2 && listing.price_numeric && (
+                ) : null}
+                {(listing.square_m2 && listing.price_numeric) ? (
                   <>
                     <View style={styles.priceSeparator} />
                     <Text style={styles.pricePerM2}>
                       {Math.round(listing.price_numeric / listing.square_m2)} KM/m²
                     </Text>
                   </>
-                )}
+                ) : null}
               </View>
             </View>
 
@@ -199,12 +199,12 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
           {/* Basic Info */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Basic Information</Text>
-            {listing.municipality && (
+            {listing.municipality ? (
               <InfoRow icon="location" label="Location" value={listing.municipality} />
-            )}
-            {listing.property_type && (
+            ) : null}
+            {listing.property_type ? (
               <InfoRow icon="home" label="Property Type" value={listing.property_type} />
-            )}
+            ) : null}
             {listing.ad_type ? <InfoRow icon="pricetag" label="Ad Type" value={listing.ad_type} /> : null}
             {listing.rooms != null ? <InfoRow icon="bed" label="Rooms" value={formatRooms(listing.rooms)} /> : null}
             {listing.square_m2 != null ? (
@@ -215,41 +215,41 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
           </View>
 
           {/* Additional Details */}
-          {(listing.heating || listing.level || listing.bathrooms || listing.orientation || listing.floor_type || listing.year_built) && (
+          {(listing.heating || listing.level != null || listing.bathrooms != null || listing.orientation || listing.floor_type || listing.year_built != null) ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Property Details</Text>
-              {listing.heating && <InfoRow icon="flame" label="Heating" value={listing.heating} />}
-              {listing.level && <InfoRow icon="layers" label="Floor" value={listing.level} />}
+              {listing.heating ? <InfoRow icon="flame" label="Heating" value={listing.heating} /> : null}
+              {listing.level != null ? <InfoRow icon="layers" label="Floor" value={listing.level} /> : null}
               {listing.bathrooms != null ? (
                 <InfoRow icon="water" label="Bathrooms" value={listing.bathrooms.toString()} />
               ) : null}
-              {listing.orientation && (
+              {listing.orientation ? (
                 <InfoRow icon="compass" label="Orientation" value={listing.orientation} />
-              )}
-              {listing.floor_type && (
+              ) : null}
+              {listing.floor_type ? (
                 <InfoRow icon="square" label="Floor Type" value={listing.floor_type} />
-              )}
+              ) : null}
               {listing.year_built != null ? (
                 <InfoRow icon="calendar" label="Year Built" value={listing.year_built.toString()} />
               ) : null}
             </View>
-          )}
+          ) : null}
 
           {/* Amenities */}
-          {(listing.has_elevator || listing.has_balcony || listing.has_parking || listing.has_garage) && (
+          {(listing.has_elevator || listing.has_balcony || listing.has_parking || listing.has_garage) ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Amenities</Text>
               <View style={styles.amenitiesGrid}>
-                {listing.has_elevator && <AmenityBadge icon="business" label="Elevator" />}
-                {listing.has_balcony && <AmenityBadge icon="sunny" label="Balcony" />}
-                {listing.has_parking && <AmenityBadge icon="car" label="Parking" />}
-                {listing.has_garage && <AmenityBadge icon="home" label="Garage" />}
+                {listing.has_elevator ? <AmenityBadge icon="business" label="Elevator" /> : null}
+                {listing.has_balcony ? <AmenityBadge icon="sunny" label="Balcony" /> : null}
+                {listing.has_parking ? <AmenityBadge icon="car" label="Parking" /> : null}
+                {listing.has_garage ? <AmenityBadge icon="home" label="Garage" /> : null}
               </View>
             </View>
-          )}
+          ) : null}
 
           {/* Location */}
-          {(listing.latitude && listing.longitude) && (
+          {(listing.latitude != null && listing.longitude != null) ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Location</Text>
               <View style={styles.mapContainer}>
@@ -275,15 +275,15 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 </MapView>
               </View>
             </View>
-          )}
+          ) : null}
 
           {/* Description */}
-          {listing.description && (
+          {listing.description ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Description</Text>
               <Text style={styles.description}>{listing.description}</Text>
             </View>
-          )}
+          ) : null}
 
           {/* Open URL Button */}
           <TouchableOpacity style={styles.openButton} onPress={handleOpenUrl}>
@@ -295,7 +295,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             >
               <Ionicons name="open-outline" size={24} color="#fff" />
               <Text style={styles.openButtonText}>
-                View on {listing.source?.toUpperCase() || 'Website'}
+                {listing.source ? `View on ${listing.source.toUpperCase()}` : 'View on Website'}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -474,11 +474,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20
-  },
-  dealScoreLabel: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#fff'
   },
   dealScoreLabel: {
     fontSize: 12,

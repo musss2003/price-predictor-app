@@ -69,7 +69,7 @@ export const SourceBadge: React.FC<SourceBadgeProps> = ({ source, size = 'medium
         ]}
       >
         <Text style={[styles.text, textSizeStyles[size]]}>
-          {source.toUpperCase()}
+          {String(source).toUpperCase()}
         </Text>
       </View>
     )
