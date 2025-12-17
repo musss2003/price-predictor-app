@@ -121,19 +121,6 @@ export default function StatisticsScreen() {
     return num.toLocaleString("bs-BA");
   };
 
-  const getFairnessColor = (fairness: string) => {
-    switch (fairness) {
-      case "excellent":
-        return "#10b981";
-      case "good":
-        return "#3b82f6";
-      case "fair":
-        return "#f59e0b";
-      default:
-        return "#ef4444";
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.centerContainer}>
