@@ -3,7 +3,7 @@
  * Displays property listing with consistent design
  */
 
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -36,7 +36,7 @@ interface ListingCardProps {
   compact?: boolean;
 }
 
-export const ListingCard: React.FC<ListingCardProps> = ({
+const ListingCardComponent: React.FC<ListingCardProps> = ({
   listing,
   index = 0,
   onPress,
@@ -45,6 +45,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({
   showSource = true,
   compact = false,
 }) => {
+  const [imageError, setImageError] = useState(false);
   const dealColor = getDealScoreColor(listing.deal_score);
   const dealLabel = getDealScoreLabel(listing.deal_score);
 
@@ -76,13 +77,17 @@ export const ListingCard: React.FC<ListingCardProps> = ({
         style={[styles.card, compact && styles.cardCompact]}
         onPress={handlePress}
         activeOpacity={0.7}
+        accessible={true}
+        accessibilityLabel={`Property listing: ${listing.title}`}
+        accessibilityRole="button"
       >
         {/* Thumbnail Image */}
-        {thumbnailUrl ? (
+        {thumbnailUrl && !imageError ? (
           <Image
             source={{ uri: thumbnailUrl }}
             style={[styles.thumbnail, compact && styles.thumbnailCompact]}
             resizeMode="cover"
+            onError={() => setImageError(true)}
           />
         ) : (
           <View style={[styles.thumbnail, styles.noImage, compact && styles.thumbnailCompact]}>
@@ -228,6 +233,16 @@ export const ListingCard: React.FC<ListingCardProps> = ({
     </MotiView>
   );
 };
+
+// Memoize component to prevent unnecessary re-renders
+export const ListingCard = React.memo(ListingCardComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.listing.id === nextProps.listing.id &&
+    prevProps.isFavorite === nextProps.isFavorite &&
+    prevProps.compact === nextProps.compact &&
+    prevProps.showSource === nextProps.showSource
+  );
+});
 
 interface DetailRowProps {
   icon: keyof typeof Ionicons.glyphMap;

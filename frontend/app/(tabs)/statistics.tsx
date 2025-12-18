@@ -5,8 +5,10 @@ import {
   View,
   ActivityIndicator,
   Text,
+  TouchableOpacity,
+  StatusBar,
 } from "react-native";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { API_URL } from "../../constants/config";
 import { StatCard } from "@/components/statistics/stat-card";
@@ -121,6 +123,31 @@ export default function StatisticsScreen() {
     return num.toLocaleString("bs-BA");
   };
 
+  // Memoize map markers to prevent re-rendering on every update
+  const mapMarkers = useMemo(() => {
+    return mapListings.map((listing) => (
+      <Marker
+        key={`marker-${listing.id}`}
+        coordinate={{
+          latitude: listing.latitude,
+          longitude: listing.longitude,
+        }}
+        pinColor={listing.marker_color}
+        title={listing.title}
+        description={`${formatPrice(listing.price_numeric)} • ${
+          listing.rooms
+        } rooms • ${listing.square_m2}m²`}
+      >
+        <View
+          style={[
+            styles.customMarker,
+            { backgroundColor: listing.marker_color },
+          ]}
+        />
+      </Marker>
+    ));
+  }, [mapListings]);
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -137,20 +164,22 @@ export default function StatisticsScreen() {
       <View style={styles.centerContainer}>
         <Ionicons name="alert-circle-outline" size={64} color="#ef4444" />
         <Text style={styles.errorText}>{error}</Text>
-        <View style={styles.retryButton} onTouchEnd={fetchStatistics}>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchStatistics}>
           <Text style={styles.retryText}>Retry</Text>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <ScrollView
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>
@@ -238,27 +267,7 @@ export default function StatisticsScreen() {
               longitudeDelta: 0.15,
             }}
           >
-            {mapListings.map((listing) => (
-              <Marker
-                key={`${listing.id}`}
-                coordinate={{
-                  latitude: listing.latitude,
-                  longitude: listing.longitude,
-                }}
-                pinColor={listing.marker_color}
-                title={listing.title}
-                description={`${formatPrice(listing.price_numeric)} • ${
-                  listing.rooms
-                } rooms • ${listing.square_m2}m²`}
-              >
-                <View
-                  style={[
-                    styles.customMarker,
-                    { backgroundColor: listing.marker_color },
-                  ]}
-                />
-              </Marker>
-            ))}
+            {mapMarkers}
           </MapView>
         </View>
       )}
@@ -303,6 +312,7 @@ export default function StatisticsScreen() {
         </View>
       </View>
     </ScrollView>
+    </>
   );
 }
 
