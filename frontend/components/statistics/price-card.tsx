@@ -7,9 +7,20 @@ interface PriceCardProps {
   pricePerM2: number;
   count: number;
   rank: number;
+  prodajaCount: number;
+  iznajmljivanjeCount: number;
 }
 
-export function PriceCard({ municipality, avgPrice, avgSize, pricePerM2, count, rank }: PriceCardProps) {
+export function PriceCard({
+  municipality,
+  avgPrice,
+  avgSize,
+  pricePerM2,
+  count,
+  rank,
+  prodajaCount,
+  iznajmljivanjeCount,
+}: PriceCardProps) {
   const formatPrice = (price: number) => {
     return `${(price / 1000).toFixed(0)}k KM`;
   };
@@ -33,6 +44,15 @@ export function PriceCard({ municipality, avgPrice, avgSize, pricePerM2, count, 
           </Text>
         </View>
         <Text style={styles.count}>{count} listings</Text>
+      </View>
+
+      <View style={styles.badgeRow}>
+        <View style={[styles.badge, { backgroundColor: "#ecfdf3", borderColor: "#10b981" }]}>
+          <Text style={[styles.badgeText, { color: "#065f46" }]}>Prodaja: {prodajaCount}</Text>
+        </View>
+        <View style={[styles.badge, { backgroundColor: "#fff7ed", borderColor: "#f59e0b" }]}>
+          <Text style={[styles.badgeText, { color: "#92400e" }]}>Iznajmljivanje: {iznajmljivanjeCount}</Text>
+        </View>
       </View>
 
       <View style={styles.statsGrid}>
@@ -106,6 +126,21 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     fontWeight: '500',
     color: '#000000',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   statsGrid: {
     flexDirection: 'row',

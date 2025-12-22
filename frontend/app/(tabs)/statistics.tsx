@@ -13,7 +13,6 @@ import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { API_URL } from "../../constants/config";
 import { StatCard } from "@/components/statistics/stat-card";
 import { SimpleBarChart } from "@/components/statistics/simple-bar-chart";
-import { PriceCard } from "@/components/statistics/price-card";
 import { Ionicons } from "@expo/vector-icons";
 
 interface MunicipalityStats {
@@ -192,6 +191,63 @@ export default function StatisticsScreen() {
     };
   }, [summaryStats]);
 
+  const topProdaja = useMemo(
+    () =>
+      [...municipalityStats].sort(
+        (a, b) => (b.prodaja.count || 0) - (a.prodaja.count || 0)
+      ),
+    [municipalityStats]
+  );
+
+  const topIznajmljivanje = useMemo(
+    () =>
+      [...municipalityStats].sort(
+        (a, b) => (b.iznajmljivanje.count || 0) - (a.iznajmljivanje.count || 0)
+      ),
+    [municipalityStats]
+  );
+
+  const renderTypeCard = (
+    stat: MunicipalityStats,
+    type: "prodaja" | "iznajmljivanje",
+    rank: number,
+    accent: string
+  ) => {
+    const data = stat[type];
+    return (
+      <View style={[styles.typeCard, { borderColor: accent + "33" }]}>
+        <View style={styles.typeCardHeader}>
+          <View style={[styles.rankBadge, { backgroundColor: accent + "22" }]}>
+            <Text style={[styles.rankText, { color: accent }]}>#{rank}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.muniLabel}>{stat.municipality}</Text>
+            <Text style={[styles.typeLabel, { color: accent }]}>
+              {type === "prodaja" ? "Prodaja" : "Iznajmljivanje"}
+            </Text>
+          </View>
+          <Text style={styles.count}>{data.count} listings</Text>
+        </View>
+        <View style={styles.typeStats}>
+          <View>
+            <Text style={styles.statLabel}>Avg Price</Text>
+            <Text style={styles.statValue}>{formatPrice(data.avg_price)}</Text>
+          </View>
+          <View>
+            <Text style={styles.statLabel}>Avg Size</Text>
+            <Text style={styles.statValue}>{data.avg_size.toFixed(0)} m²</Text>
+          </View>
+          <View>
+            <Text style={styles.statLabel}>Price/m²</Text>
+            <Text style={[styles.statValue, { color: accent }]}>
+              {data.price_per_m2.toFixed(0)} KM
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -325,66 +381,40 @@ export default function StatisticsScreen() {
           </Text>
         </View>
         <Text style={styles.sectionSubtitle}>
-          Ranked by listing count and average prices
+          Separate views for Prodaja and Iznajmljivanje
         </Text>
 
-        {/* Bar Chart for Top 5 */}
         {municipalityStats.length > 0 && (
-          <SimpleBarChart
-            title="Listings by Municipality"
-            data={municipalityStats.slice(0, 5).map((stat) => ({
-              label: stat.municipality,
-              value: stat.total_count,
-              color: "#3b82f6",
-            }))}
-          />
+          <>
+            <SimpleBarChart
+              title="Prodaja by Municipality"
+              data={topProdaja.slice(0, 5).map((stat) => ({
+                label: stat.municipality,
+                value: stat.prodaja.count,
+                color: "#10b981",
+              }))}
+            />
+            <View style={styles.cardsContainer}>
+              {topProdaja.slice(0, 6).map((stat, index) =>
+                renderTypeCard(stat, "prodaja", index + 1, "#10b981")
+              )}
+            </View>
+
+            <SimpleBarChart
+              title="Iznajmljivanje by Municipality"
+              data={topIznajmljivanje.slice(0, 5).map((stat) => ({
+                label: stat.municipality,
+                value: stat.iznajmljivanje.count,
+                color: "#f59e0b",
+              }))}
+            />
+            <View style={styles.cardsContainer}>
+              {topIznajmljivanje.slice(0, 6).map((stat, index) =>
+                renderTypeCard(stat, "iznajmljivanje", index + 1, "#f59e0b")
+              )}
+            </View>
+          </>
         )}
-
-        {/* Detailed Cards */}
-        <View style={styles.cardsContainer}>
-          {municipalityStats.slice(0, 8).map((stat, index) => {
-            const combinedCount =
-              stat.total_count ||
-              stat.prodaja.count + stat.iznajmljivanje.count;
-
-            const combinedAvgPrice =
-              combinedCount > 0
-                ? (
-                    (stat.prodaja.avg_price * stat.prodaja.count +
-                      stat.iznajmljivanje.avg_price *
-                        stat.iznajmljivanje.count) /
-                    combinedCount
-                  )
-                : 0;
-
-            const combinedAvgSize =
-              combinedCount > 0
-                ? (
-                    (stat.prodaja.avg_size * stat.prodaja.count +
-                      stat.iznajmljivanje.avg_size *
-                        stat.iznajmljivanje.count) /
-                    combinedCount
-                  )
-                : 0;
-
-            const combinedPricePerM2 =
-              combinedAvgSize > 0
-                ? combinedAvgPrice / combinedAvgSize
-                : 0;
-
-            return (
-              <PriceCard
-                key={stat.municipality}
-                municipality={stat.municipality}
-                avgPrice={combinedAvgPrice}
-                avgSize={combinedAvgSize}
-                pricePerM2={combinedPricePerM2}
-                count={combinedCount}
-                rank={index + 1}
-              />
-            );
-          })}
-        </View>
       </View>
     </ScrollView>
     </>
@@ -516,5 +546,63 @@ const styles = StyleSheet.create({
   },
   cardsContainer: {
     marginTop: 12,
+  },
+  typeCard: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    marginBottom: 12,
+    gap: 10,
+  },
+  typeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  muniLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  typeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.8,
+  },
+  count: {
+    fontSize: 13,
+    opacity: 0.6,
+    fontWeight: '500',
+    color: '#000000',
+  },
+  rankBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rankText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#000000',
+  },
+  typeStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statLabel: {
+    fontSize: 11,
+    opacity: 0.6,
+    marginBottom: 4,
+    fontWeight: '500',
+    color: '#000000',
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000000',
   },
 });

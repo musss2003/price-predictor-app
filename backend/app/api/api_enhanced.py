@@ -30,7 +30,7 @@ supabase: Client = create_client(supabase_url, supabase_key)
 async def get_listings_v2(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    source: Optional[str] = Query(None, regex="^(olx|nekretnine|all)$"),
+    source: Optional[str] = Query(None, pattern="^(olx|nekretnine|all)$"),
     search: Optional[str] = None,
     municipality: Optional[str] = None,
     property_type: Optional[str] = None,
@@ -42,8 +42,8 @@ async def get_listings_v2(
     size_min: Optional[float] = None,
     size_max: Optional[float] = None,
     deal_score_min: Optional[int] = None,
-    sort_by: str = Query("deal_score", regex="^(deal_score|price|date|size)$"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$"),
+    sort_by: str = Query("deal_score", pattern="^(deal_score|price|date|size)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
 ):
     """
     Get property listings with advanced filtering
@@ -292,6 +292,10 @@ async def get_municipality_stats():
     Get statistics grouped by municipality, split by ad_type (Prodaja/Iznajmljivanje).
     """
     try:
+        # Plausibility thresholds for price per m2 to drop obvious outliers
+        PPM_MIN = 5
+        PPM_MAX = 20000
+
         # Paginate to pull all active listings (Supabase default limit is 1000)
         listings = []
         offset = 0
@@ -329,10 +333,18 @@ async def get_municipality_stats():
             price = listing.get("price_numeric")
             size = listing.get("square_m2")
 
+            # Skip implausible ppm
+            if price and size and size > 0:
+                ppm = price / size
+                if ppm < PPM_MIN or ppm > PPM_MAX:
+                    continue
+
             # Infer or skip unknown ad_type
             if not ad_type or ad_type == "Unknown":
                 if price and size and size > 0 and min_prodaja_ppm is not None:
                     price_per_m2 = price / size
+                    if price_per_m2 < PPM_MIN or price_per_m2 > PPM_MAX:
+                        continue
                     if price_per_m2 >= min_prodaja_ppm:
                         ad_type = "Prodaja"
                     else:
