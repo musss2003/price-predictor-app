@@ -215,7 +215,10 @@ export default function StatisticsScreen() {
   ) => {
     const data = stat[type];
     return (
-      <View style={[styles.typeCard, { borderColor: accent + "33" }]}>
+      <View
+        key={`${stat.municipality}-${type}`}
+        style={[styles.typeCard, { borderColor: accent + "33" }]}
+      >
         <View style={styles.typeCardHeader}>
           <View style={[styles.rankBadge, { backgroundColor: accent + "22" }]}>
             <Text style={[styles.rankText, { color: accent }]}>#{rank}</Text>

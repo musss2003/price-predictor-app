@@ -19,6 +19,7 @@ export default function HistoryScreen() {
   const { history, clearHistory } = usePredictionHistory();
   const { user } = useAuth();
   const [serverHistory, setServerHistory] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -31,11 +32,13 @@ export default function HistoryScreen() {
     if (!user) return;
     
     setLoading(true);
+    setError(null);
     try {
       const data = await getUserPredictions();
-      setServerHistory(data);
-    } catch (error) {
-      console.error("Failed to load server history:", error);
+      setServerHistory(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error("Failed to load server history:", err);
+      setError("Could not load your saved predictions.");
     } finally {
       setLoading(false);
     }
@@ -46,9 +49,9 @@ export default function HistoryScreen() {
 
   const renderItem = ({ item }: { item: any }) => {
     // Handle both local and server predictions
-    const price = item.price || item.predicted_price;
+    const price = item.predicted_price ?? item.price ?? 0;
     const input = item.input || item;
-    const createdAt = item.createdAt || item.created_at;
+    const createdAt = item.created_at || item.createdAt || item.createdAt;
     
     const date = new Date(createdAt);
     const formattedDate = date.toLocaleDateString("en-US", {
@@ -123,10 +126,12 @@ export default function HistoryScreen() {
       ) : combinedHistory.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyEmoji}>📊</Text>
-          <Text style={styles.empty}>No predictions yet</Text>
+          <Text style={styles.empty}>{error || "No predictions yet"}</Text>
           <Text style={styles.emptySubtext}>
-            {user 
-              ? "Make your first prediction on the Predict tab!" 
+            {error
+              ? "Try again later."
+              : user
+              ? "Make your first prediction on the Predict tab!"
               : "Sign in to sync your predictions across devices"}
           </Text>
         </View>

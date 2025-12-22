@@ -1,8 +1,23 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-from ml_runtime.predict import predict_price
-from app.core.logging import logger
+import os
+from typing import Optional
 
+from dotenv import load_dotenv
+from fastapi import APIRouter, HTTPException, Header
+from pydantic import BaseModel, Field
+from supabase import Client, create_client
+
+from app.core.logging import logger
+from app.services.auth import AuthService
+from ml_runtime.predict import predict_price
+
+
+load_dotenv()
+
+# Initialize Supabase client and auth service
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(supabase_url, supabase_key)
+auth_service = AuthService(supabase)
 
 router = APIRouter()
 
@@ -55,9 +70,31 @@ def predict(request: PredictRequest):
 
 
 @router.get("/predictions")
-def get_predictions(limit: int = 50):
+def get_predictions(limit: int = 50, authorization: Optional[str] = Header(None)):
     """
-    Placeholder for user prediction history. Currently returns an empty list.
+    Return the authenticated user's recent predictions.
     """
-    logger.info("Prediction history requested", extra={"event": "prediction_history", "limit": limit})
-    return []
+    user = auth_service.verify_token(authorization)
+    capped_limit = max(1, min(limit, 200))
+    logger.info(
+        "Prediction history requested",
+        extra={
+            "event": "prediction_history",
+            "limit": capped_limit,
+            "user_id": user["id"],
+        },
+    )
+
+    try:
+        response = (
+            supabase.table("predictions")
+            .select("*")
+            .eq("user_id", user["id"])
+            .order("created_at", desc=True)
+            .limit(capped_limit)
+            .execute()
+        )
+        return response.data or []
+    except Exception as e:
+        logger.exception("Failed to fetch predictions", extra={"user_id": user["id"]})
+        raise HTTPException(status_code=500, detail="Failed to fetch predictions") from None
