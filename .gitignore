@@ -51,3 +51,5 @@ backend.log
 # ------------------------------------
 dist/
 build/
+
+nginx/auth.htpasswd
