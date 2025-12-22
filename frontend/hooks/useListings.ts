@@ -106,8 +106,6 @@ export const useListings = (options: UseListingsOptions = {}) => {
 
       const result = await getListingsV2(params)
 
-      console.log('Fetched listings:', result)
-
       if (!result.success) {
         throw new Error('Failed to fetch listings')
       }

@@ -246,12 +246,12 @@ async def get_statistics_summary():
         nekretnine_count = supabase.table("listings_nekretnine").select("id", count="exact").eq("is_active", True).execute()
         
         # Get price statistics
-        all_listings = supabase.table("all_listings").select("price_numeric, square_m2, municipality").eq("is_active", True).execute()
+        all_listings = supabase.table("all_listings").select("price_numeric, id").eq("is_active", True).execute()
         
         prices = [l["price_numeric"] for l in all_listings.data if l.get("price_numeric")]
         
         stats = {
-            "total_listings": len(all_listings.data),
+            "total_listings": olx_count.count + nekretnine_count.count,
             "olx_listings": olx_count.count if hasattr(olx_count, 'count') else 0,
             "nekretnine_listings": nekretnine_count.count if hasattr(nekretnine_count, 'count') else 0,
             "price_stats": {
