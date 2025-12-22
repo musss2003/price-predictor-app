@@ -12,12 +12,15 @@ from supabase import create_client, Client
 from app.services.auth import AuthService
 from app.models.models import (
     PredictionInput, PredictionResponse,
-    UserSignUp, UserSignIn, UserProfile, UserProfileUpdate,
-    UserPreferences, SavedListing, UserInterest,
-    AuthResponse, MessageResponse
+    UserSignUp, UserSignIn, UserProfileUpdate,
+    UserPreferences, SavedListing,
+
 )
+from backend.app.core.exceptions import unhandled_exception_handler
 from app.api.api_enhanced import router as enhanced_router
 from app.api.api_favorites import router as favorites_router
+from backend.app.api.predict import router as predict_router
+from backend.app.api.health import router as health_router
 
 # Load environment variables
 load_dotenv()
@@ -36,14 +39,20 @@ auth_service = AuthService(supabase)
 
 app = FastAPI(title="Real Estate Price Predictor API", version="1.0.0")
 
+app.add_exception_handler(Exception, unhandled_exception_handler)
+
 # Include enhanced API routers
 app.include_router(enhanced_router, tags=["Enhanced Listings API"])
 app.include_router(favorites_router, tags=["User Favorites & Saved Searches"])
+app.include_router(predict_router, tags=["Price Prediction"])
+app.include_router(health_router, tags=["Health Check"])
+
 
 # Allow your Expo App to connect
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], 
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
