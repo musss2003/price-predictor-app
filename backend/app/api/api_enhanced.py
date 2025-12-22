@@ -292,14 +292,25 @@ async def get_municipality_stats():
     Get statistics grouped by municipality, split by ad_type (Prodaja/Iznajmljivanje).
     """
     try:
-        listings_resp = (
-            supabase.table("all_listings")
-            .select("municipality, price_numeric, square_m2, ad_type")
-            .eq("is_active", True)
-            .execute()
-        )
-
-        listings = listings_resp.data or []
+        # Paginate to pull all active listings (Supabase default limit is 1000)
+        listings = []
+        offset = 0
+        batch_size = 1000
+        while True:
+            resp = (
+                supabase.table("all_listings")
+                .select("municipality, price_numeric, square_m2, ad_type")
+                .eq("is_active", True)
+                .range(offset, offset + batch_size - 1)
+                .execute()
+            )
+            batch = resp.data or []
+            if not batch:
+                break
+            listings.extend(batch)
+            if len(batch) < batch_size:
+                break
+            offset += batch_size
 
         # Find minimum price_per_m2 among Prodaja to help infer unknowns
         prodaja_ppm = []

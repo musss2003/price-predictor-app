@@ -28,11 +28,23 @@ def supabase_client():
 
 def municipalities_from_supabase(table: str, active_only: bool = True) -> Counter:
     client = supabase_client()
-    query = client.table(table).select("municipality")
-    if active_only:
-        query = query.eq("is_active", True)
-    resp = query.execute()
-    values = [row.get("municipality") or "Unknown" for row in resp.data or []]
+    batch_size = 1000  # PostgREST default limit is 1000; pull in batches
+    offset = 0
+    values = []
+
+    while True:
+        query = client.table(table).select("municipality").range(offset, offset + batch_size - 1)
+        if active_only:
+            query = query.eq("is_active", True)
+        resp = query.execute()
+        rows = resp.data or []
+        if not rows:
+            break
+        values.extend(row.get("municipality") or "Unknown" for row in rows)
+        if len(rows) < batch_size:
+            break
+        offset += batch_size
+
     return Counter(values)
 
 
