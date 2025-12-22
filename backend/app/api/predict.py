@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, logger
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from ml_runtime.predict import predict_price
 from app.core.logging import logger
@@ -24,10 +24,31 @@ class PredictRequest(BaseModel):
 
 
 @router.post("/predict")
-def predict(data: PredictRequest):
+def predict(request: PredictRequest):
+    payload = request.dict()
+    audit_context = {
+        "event": "prediction_request",
+        "ad_type": payload.get("ad_type"),
+        "property_type": payload.get("property_type"),
+        "condition": payload.get("condition"),
+        "rooms": payload.get("rooms"),
+        "square_m2": payload.get("square_m2"),
+        "has_coords": bool(payload.get("latitude") and payload.get("longitude")),
+    }
     try:
-        price = predict_price(data.dict())
-        logger.info("Prediction request received")
+        logger.info("Prediction request started", extra={**audit_context, "status": "started"})
+        price = predict_price(payload)
+        logger.info("Prediction request completed", extra={**audit_context, "status": "success"})
         return {"predicted_price": price}
+    except ValueError as e:
+        logger.warning("Prediction validation failed", extra={**audit_context, "status": "validation_error"})
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid input for prediction.",
+        ) from None
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Prediction failed", extra={**audit_context, "status": "error", "stage": "predict_price"})
+        raise HTTPException(
+            status_code=500,
+            detail="Prediction failed. Please try again later.",
+        ) from None
