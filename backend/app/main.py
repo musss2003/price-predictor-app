@@ -9,15 +9,15 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 # Import our custom modules
-from auth import AuthService
-from models import (
+from app.services.auth import AuthService
+from app.models.models import (
     PredictionInput, PredictionResponse,
     UserSignUp, UserSignIn, UserProfile, UserProfileUpdate,
     UserPreferences, SavedListing, UserInterest,
     AuthResponse, MessageResponse
 )
-from api_enhanced import router as enhanced_router
-from api_favorites import router as favorites_router
+from app.api.api_enhanced import router as enhanced_router
+from app.api.api_favorites import router as favorites_router
 
 # Load environment variables
 load_dotenv()
@@ -48,7 +48,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATA_PATH = "data/flats.csv"
+DATA_PATH = "scripts/data/flats.csv"
 
 # Load CSV once at startup
 df = pd.read_csv(DATA_PATH)

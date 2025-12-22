@@ -115,30 +115,8 @@ export default function HomeScreen() {
           <Text style={styles.subtitle}>
             Select a neighborhood from dropdown or tap directly on map
           </Text>
-          <View style={styles.pickerContainer}>
-            <SelectPicker
-              selectedValue={`${latitude},${longitude}`}
-              onValueChange={(value) => {
-                if (value !== "custom") {
-                  const [lat, lon] = value.split(",").map(Number);
-                  setLatitude(lat);
-                  setLongitude(lon);
-                }
-              }}
-              items={[
-                { label: "Centar (Center)", value: "43.8563,18.4131" },
-                { label: "Novo Sarajevo", value: "43.8486,18.3917" },
-                { label: "Novi Grad", value: "43.8820,18.3550" },
-                { label: "Stari Grad (Old Town)", value: "43.8594,18.4311" },
-                { label: "Ilidža", value: "43.8270,18.3110" },
-                { label: "Vogošća", value: "43.9050,18.3420" },
-                { label: "Hadžići", value: "43.8230,18.2080" },
-                { label: "Ilijaš", value: "43.9510,18.2750" },
-                { label: "Custom (tap on map)", value: "custom" },
-              ]}
-              style={styles.picker}
-            />
-          </View>
+
+          {/* TODO: YOUR LOACTION */}
 
           <View style={styles.mapContainer}>
             <MapView
@@ -180,6 +158,7 @@ export default function HomeScreen() {
                 keyboardType="decimal-pad"
               />
             </View>
+
             <View style={styles.coordInputContainer}>
               <Text style={styles.coordLabel}>Longitude</Text>
               <TextInput
@@ -198,20 +177,6 @@ export default function HomeScreen() {
             📍 {latitude.toFixed(4)}, {longitude.toFixed(4)}
           </Text>
 
-          <Text style={styles.label}>Condition</Text>
-          <View style={styles.pickerContainer}>
-            <SelectPicker
-              selectedValue={condition}
-              onValueChange={setCondition}
-              items={[
-                { label: "Renovated", value: "Renovated" },
-                { label: "New", value: "New" },
-                { label: "Used", value: "Used" },
-              ]}
-              style={styles.picker}
-            />
-          </View>
-
           <Text style={styles.label}>Ad Type</Text>
           <View style={styles.pickerContainer}>
             <SelectPicker
@@ -225,18 +190,24 @@ export default function HomeScreen() {
             />
           </View>
 
-          <Text style={styles.label}>Property Type</Text>
-          <View style={styles.pickerContainer}>
-            <SelectPicker
-              selectedValue={propertyType}
-              onValueChange={setPropertyType}
-              items={[
-                { label: "Apartment", value: "Apartment" },
-                { label: "House", value: "House" },
-              ]}
-              style={styles.picker}
-            />
-          </View>
+          {/* Condition only appears for Sale, not Rent */}
+          {adType === "Sale" && (
+            <>
+              <Text style={styles.label}>Condition</Text>
+              <View style={styles.pickerContainer}>
+                <SelectPicker
+                  selectedValue={condition}
+                  onValueChange={setCondition}
+                  items={[
+                    { label: "Renovated", value: "Renovated" },
+                    { label: "New", value: "New" },
+                    { label: "Used", value: "Used" },
+                  ]}
+                  style={styles.picker}
+                />
+              </View>
+            </>
+          )}
 
           <TextInput
             style={styles.input}
@@ -254,6 +225,16 @@ export default function HomeScreen() {
             keyboardType="numeric"
           />
 
+          <TextInput
+            style={styles.input}
+            value={level}
+            onChangeText={setLevel}
+            placeholder="Floor level *"
+            keyboardType="numeric"
+          />
+
+          {/* TODO: Input validators */}
+
           <Text style={styles.label}>Equipment</Text>
           <View style={styles.pickerContainer}>
             <SelectPicker
@@ -268,24 +249,21 @@ export default function HomeScreen() {
             />
           </View>
 
-          <TextInput
-            style={styles.input}
-            value={level}
-            onChangeText={setLevel}
-            placeholder="Floor level *"
-            keyboardType="numeric"
-          />
-
           <Text style={styles.label}>Heating</Text>
           <View style={styles.pickerContainer}>
             <SelectPicker
               selectedValue={heating}
               onValueChange={setHeating}
               items={[
-                { label: "Central", value: "Central" },
-                { label: "Gas", value: "Gas" },
-                { label: "Electric", value: "Electric" },
-                { label: "None", value: "None" },
+                { label: "District Heating", value: "District Heating" },
+                { label: "Gas Heating", value: "Gas Heating" },
+                { label: "Electric Heating", value: "Electric Heating" },
+                { label: "Central Gas Heating", value: "Central Gas Heating" },
+                {
+                  label: "Central (Boiler Room)",
+                  value: "Central (Boiler Room)",
+                },
+                { label: "Other", value: "Other" },
               ]}
               style={styles.picker}
             />
