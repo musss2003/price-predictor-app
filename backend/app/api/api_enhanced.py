@@ -26,7 +26,7 @@ supabase: Client = create_client(supabase_url, supabase_key)
 #              LISTINGS ENDPOINTS
 # ============================================================
 
-@router.get("/api/v2/listings")
+@router.get("/v2/listings")
 async def get_listings_v2(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -139,7 +139,7 @@ async def get_listings_v2(
         raise HTTPException(status_code=500, detail=f"Error fetching listings: {str(e)}")
 
 
-@router.get("/api/v2/listings/{source}/{listing_id}")
+@router.get("/v2/listings/{source}/{listing_id}")
 async def get_listing_detail(source: str, listing_id: int):
     """
     Get detailed information about a specific listing
@@ -166,7 +166,7 @@ async def get_listing_detail(source: str, listing_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/api/v2/listings/similar/{source}/{listing_id}")
+@router.get("/v2/listings/similar/{source}/{listing_id}")
 async def get_similar_listings(
     source: str,
     listing_id: int,
@@ -235,7 +235,7 @@ async def get_similar_listings(
 #              ANALYTICS & STATISTICS
 # ============================================================
 
-@router.get("/api/v2/statistics/summary")
+@router.get("/v2/statistics/summary")
 async def get_statistics_summary():
     """
     Get overall market statistics
@@ -286,7 +286,7 @@ async def get_statistics_summary():
     # ...existing code...
 
 
-@router.get("/api/v2/statistics/by-municipality")
+@router.get("/v2/statistics/by-municipality")
 async def get_municipality_stats():
     """
     Get statistics grouped by municipality, split by ad_type (Prodaja/Iznajmljivanje).
@@ -380,7 +380,7 @@ async def get_municipality_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/api/v2/statistics/price-trends")
+@router.get("/v2/statistics/price-trends")
 async def get_price_trends(
     municipality: Optional[str] = None,
     days: int = Query(30, ge=7, le=90)
@@ -412,7 +412,7 @@ async def get_price_trends(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/api/v2/statistics/map-data")
+@router.get("/v2/statistics/map-data")
 async def get_map_data(
     municipality: Optional[str] = None,
     price_min: Optional[int] = None,
@@ -525,7 +525,7 @@ async def get_map_data(
 #              SEARCH & DISCOVERY
 # ============================================================
 
-@router.get("/api/v2/search")
+@router.get("/v2/search")
 async def search_listings(
     q: str = Query(..., min_length=2),
     limit: int = Query(20, ge=1, le=50)
@@ -554,7 +554,7 @@ async def search_listings(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/api/v2/filters/options")
+@router.get("/v2/filters/options")
 async def get_filter_options():
     """
     Get all available filter options (municipalities, property types, etc.)
@@ -604,7 +604,7 @@ async def get_filter_options():
 #              SYNC STATUS
 # ============================================================
 
-@router.get("/api/v2/sync/status")
+@router.get("/v2/sync/status")
 async def get_sync_status():
     """
     Get the status of data synchronization from sources
@@ -621,7 +621,7 @@ async def get_sync_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/api/v2/health")
+@router.get("/v2/health")
 async def health_check():
     """
     API health check endpoint

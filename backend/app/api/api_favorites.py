@@ -39,7 +39,7 @@ class RemoveFavoriteRequest(BaseModel):
 #              USER FAVORITES
 # ============================================================
 
-@router.post("/api/v2/favorites")
+@router.post("/v2/favorites")
 async def add_favorite(
     request: AddFavoriteRequest,
     current_user: dict = Depends(auth_service.get_current_user)
@@ -92,7 +92,7 @@ async def add_favorite(
         raise HTTPException(status_code=500, detail=f"Error adding favorite: {str(e)}")
 
 
-@router.get("/api/v2/favorites")
+@router.get("/v2/favorites")
 async def get_favorites(
     current_user: dict = Depends(auth_service.get_current_user)
 ):
@@ -201,7 +201,7 @@ async def get_favorites(
             raise HTTPException(status_code=500, detail=f"Error fetching favorites: {str(fallback_error)}")
 
 
-@router.delete("/api/v2/favorites")
+@router.delete("/v2/favorites")
 async def remove_favorite(
     request: RemoveFavoriteRequest,
     current_user: dict = Depends(auth_service.get_current_user)
@@ -229,7 +229,7 @@ async def remove_favorite(
         raise HTTPException(status_code=500, detail=f"Error removing favorite: {str(e)}")
 
 
-@router.get("/api/v2/favorites/check/{source}/{listing_id}")
+@router.get("/v2/favorites/check/{source}/{listing_id}")
 async def check_favorite(
     source: str,
     listing_id: int,
@@ -268,7 +268,7 @@ class SavedSearchRequest(BaseModel):
     notification_enabled: bool = False
 
 
-@router.post("/api/v2/saved-searches")
+@router.post("/v2/saved-searches")
 async def create_saved_search(
     request: SavedSearchRequest,
     current_user: dict = Depends(auth_service.get_current_user)
@@ -297,7 +297,7 @@ async def create_saved_search(
         raise HTTPException(status_code=500, detail=f"Error saving search: {str(e)}")
 
 
-@router.get("/api/v2/saved-searches")
+@router.get("/v2/saved-searches")
 async def get_saved_searches(
     current_user: dict = Depends(auth_service.get_current_user)
 ):
@@ -321,7 +321,7 @@ async def get_saved_searches(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/api/v2/saved-searches/{search_id}")
+@router.delete("/v2/saved-searches/{search_id}")
 async def delete_saved_search(
     search_id: int,
     current_user: dict = Depends(auth_service.get_current_user)
@@ -349,7 +349,7 @@ async def delete_saved_search(
 #              USER NOTIFICATIONS
 # ============================================================
 
-@router.get("/api/v2/notifications")
+@router.get("/v2/notifications")
 async def get_notifications(
     unread_only: bool = False,
     current_user: dict = Depends(auth_service.get_current_user)
@@ -379,7 +379,7 @@ async def get_notifications(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.patch("/api/v2/notifications/{notification_id}/read")
+@router.patch("/v2/notifications/{notification_id}/read")
 async def mark_notification_read(
     notification_id: int,
     current_user: dict = Depends(auth_service.get_current_user)
@@ -403,7 +403,7 @@ async def mark_notification_read(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/api/v2/notifications/mark-all-read")
+@router.post("/v2/notifications/mark-all-read")
 async def mark_all_notifications_read(
     current_user: dict = Depends(auth_service.get_current_user)
 ):

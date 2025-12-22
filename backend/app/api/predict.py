@@ -52,3 +52,12 @@ def predict(request: PredictRequest):
             status_code=500,
             detail="Prediction failed. Please try again later.",
         ) from None
+
+
+@router.get("/predictions")
+def get_predictions(limit: int = 50):
+    """
+    Placeholder for user prediction history. Currently returns an empty list.
+    """
+    logger.info("Prediction history requested", extra={"event": "prediction_history", "limit": limit})
+    return []

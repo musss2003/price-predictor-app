@@ -16,7 +16,7 @@ async function getAuthHeaders() {
 export async function makePrediction(data: any) {
   const headers = await getAuthHeaders()
   
-  const response = await fetch(`${API_URL}/predict`, {
+  const response = await fetch(`${API_URL}/api/predict`, {
     method: 'POST',
     headers,
     body: JSON.stringify(data)
@@ -32,7 +32,7 @@ export async function makePrediction(data: any) {
 export async function getUserPredictions(limit = 50) {
   const headers = await getAuthHeaders()
   
-  const response = await fetch(`${API_URL}/predictions?limit=${limit}`, {
+  const response = await fetch(`${API_URL}/api/predictions?limit=${limit}`, {
     headers
   })
   
