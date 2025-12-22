@@ -8,6 +8,7 @@ FROM python:3.11-slim
 # -----------------------------
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # -----------------------------
 # Working directory
@@ -28,12 +29,17 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # -----------------------------
-# Copy backend source code
+# Copy FastAPI application code
 # -----------------------------
 COPY backend/app ./app
 
 # -----------------------------
-# Copy ONLY trained model artifacts
+# Copy ML runtime code (THIS WAS MISSING)
+# -----------------------------
+COPY backend/ml_runtime ./ml_runtime
+
+# -----------------------------
+# Copy trained model artifacts
 # -----------------------------
 COPY ml/artifacts ./ml/artifacts
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, logger
 from pydantic import BaseModel, Field
-from backend.ml_runtime.predict import predict_price
-from backend.app.core.logging import logger
+from ml_runtime.predict import predict_price
+from app.core.logging import logger
 
 
 router = APIRouter()
