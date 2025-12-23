@@ -7,9 +7,9 @@ import {
   Text,
   TouchableOpacity,
   StatusBar,
+  Platform,
 } from "react-native";
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { API_URL } from "../../constants/config";
 import { StatCard } from "@/components/statistics/stat-card";
 import { SimpleBarChart } from "@/components/statistics/simple-bar-chart";
@@ -31,6 +31,12 @@ interface MunicipalityStats {
     price_per_m2: number;
   };
 }
+
+const isWeb = Platform.OS === "web";
+const Maps = !isWeb ? require("react-native-maps") : null;
+const MapView = Maps ? Maps.default : null;
+const Marker = Maps ? Maps.Marker : null;
+const PROVIDER_DEFAULT = Maps ? Maps.PROVIDER_DEFAULT : null;
 
 interface MapListing {
   id: number;
@@ -146,6 +152,7 @@ export default function StatisticsScreen() {
 
   // Memoize map markers to prevent re-rendering on every update
   const mapMarkers = useMemo(() => {
+    if (!Marker || isWeb) return [];
     return mapListings.map((listing) => (
       <Marker
         key={`marker-${listing.id}`}
@@ -360,18 +367,25 @@ export default function StatisticsScreen() {
             </View>
           </View>
 
-          <MapView
-            provider={PROVIDER_DEFAULT}
-            style={styles.map}
-            initialRegion={{
-              latitude: 43.8563,
-              longitude: 18.4131,
-              latitudeDelta: 0.15,
-              longitudeDelta: 0.15,
-            }}
-          >
-            {mapMarkers}
-          </MapView>
+          {MapView && Marker ? (
+            <MapView
+              provider={PROVIDER_DEFAULT}
+              style={styles.map}
+              initialRegion={{
+                latitude: 43.8563,
+                longitude: 18.4131,
+                latitudeDelta: 0.15,
+                longitudeDelta: 0.15,
+              }}
+            >
+              {mapMarkers}
+            </MapView>
+          ) : (
+            <View style={[styles.map, styles.mapFallback]}>
+              <Ionicons name="map-outline" size={28} color="#3b82f6" />
+              <Text style={styles.mapFallbackText}>Map not available on web.</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -549,6 +563,17 @@ const styles = StyleSheet.create({
   },
   cardsContainer: {
     marginTop: 12,
+  },
+  mapFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#f3f4f6",
+  },
+  mapFallbackText: {
+    fontSize: 13,
+    color: "#3b82f6",
+    fontWeight: "600",
   },
   typeCard: {
     padding: 14,

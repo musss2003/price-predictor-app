@@ -13,12 +13,12 @@ import {
   TouchableOpacity,
   Dimensions,
   Image,
-  Linking
+  Linking,
+  Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Ionicons } from '@expo/vector-icons'
 import { BlurView } from 'expo-blur'
-import MapView, { Marker } from 'react-native-maps'
 import * as Haptics from 'expo-haptics'
 import { Listing } from '@/types/listing.types'
 import { SourceBadge } from './SourceBadge'
@@ -32,6 +32,10 @@ import {
 } from '@/utils/formatting.utils'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
+const isWeb = Platform.OS === "web"
+const Maps = !isWeb ? require("react-native-maps") : null
+const MapView = Maps ? Maps.default : null
+const Marker = Maps ? Maps.Marker : null
 
 interface ListingDetailModalProps {
   visible: boolean
@@ -253,26 +257,33 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Location</Text>
               <View style={styles.mapContainer}>
-                <MapView
-                  style={styles.map}
-                  initialRegion={{
-                    latitude: listing.latitude,
-                    longitude: listing.longitude,
-                    latitudeDelta: 0.005,
-                    longitudeDelta: 0.005
-                  }}
-                  scrollEnabled={true}
-                  zoomEnabled={true}
-                >
-                  <Marker
-                    coordinate={{
+                {MapView && Marker ? (
+                  <MapView
+                    style={styles.map}
+                    initialRegion={{
                       latitude: listing.latitude,
-                      longitude: listing.longitude
+                      longitude: listing.longitude,
+                      latitudeDelta: 0.005,
+                      longitudeDelta: 0.005
                     }}
-                    title={listing.title || 'Property Location'}
-                    description={listing.municipality}
-                  />
-                </MapView>
+                    scrollEnabled={true}
+                    zoomEnabled={true}
+                  >
+                    <Marker
+                      coordinate={{
+                        latitude: listing.latitude,
+                        longitude: listing.longitude
+                      }}
+                      title={listing.title || 'Property Location'}
+                      description={listing.municipality}
+                    />
+                  </MapView>
+                ) : (
+                  <View style={[styles.map, styles.mapFallback]}>
+                    <Ionicons name="map-outline" size={28} color="#3b82f6" />
+                    <Text style={styles.mapFallbackText}>Map not available on web.</Text>
+                  </View>
+                )}
               </View>
             </View>
           ) : null}
@@ -561,6 +572,12 @@ const styles = StyleSheet.create({
   map: {
     width: '100%',
     height: '100%'
+  },
+  mapFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#f3f4f6'
   },
   openButton: {
     marginHorizontal: 20,
